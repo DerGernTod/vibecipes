@@ -6,6 +6,12 @@ export default defineConfig({
   build: {
     outDir: '../../dist/client',
     emptyOutDir: true,
+    rollupOptions: {
+      input: {
+        main: path.resolve(__dirname, 'src/client/index.html'),
+        ocrCrop: path.resolve(__dirname, 'src/client/ocr-crop.html'),
+      },
+    },
   },
   server: {
     port: 5173,
