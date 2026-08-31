@@ -82,7 +82,7 @@ describe('WebAuthn Auth & Session Management API (app.fetch)', () => {
 
     await db.insert(users).values({
       id: userId,
-      username: 'sessionuser',
+      username: `sessionuser_${userId}`,
       displayName: 'Session User',
       createdAt: now,
     });
@@ -113,7 +113,7 @@ describe('WebAuthn Auth & Session Management API (app.fetch)', () => {
     const data = await res.json();
     expect(data.user).toBeDefined();
     expect(data.user.id).toBe(userId);
-    expect(data.user.username).toBe('sessionuser');
+    expect(data.user.username).toBe(`sessionuser_${userId}`);
     expect(data.user.displayName).toBe('Session User');
   });
 
@@ -125,7 +125,7 @@ describe('WebAuthn Auth & Session Management API (app.fetch)', () => {
 
     await db.insert(users).values({
       id: userId,
-      username: 'logoutuser',
+      username: `logoutuser_${userId}`,
       displayName: 'Logout User',
       createdAt: now,
     });

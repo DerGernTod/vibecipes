@@ -7,6 +7,7 @@ export const ingredients = sqliteTable('ingredients', {
   aliasesJson: text('aliases_json').notNull(), // JSON array of string aliases
   densityGPerMl: real('density_g_per_ml'),
   defaultTrait: text('default_trait').notNull(), // 'VEGAN' | 'VEGETARIAN' | 'OMNIVORE'
+  parentGroupId: text('parent_group_id'),
 });
 
 export const recipes = sqliteTable('recipes', {

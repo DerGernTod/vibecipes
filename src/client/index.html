@@ -8,6 +8,7 @@
       :root {
         --bg: #0f172a;
         --card: #1e293b;
+        --card-border: #334155;
         --text: #f8fafc;
         --muted: #94a3b8;
         --primary: #6366f1;
@@ -21,7 +22,7 @@
         padding: 2rem;
       }
       .container {
-        max-width: 800px;
+        max-width: 900px;
         margin: 0 auto;
       }
       .badge {
@@ -36,7 +37,7 @@
       }
       .card {
         background: var(--card);
-        border: 1px solid #334155;
+        border: 1px solid var(--card-border);
         border-radius: 8px;
         padding: 1.5rem;
         margin-top: 1rem;
@@ -50,6 +51,204 @@
       }
       ul { padding-left: 1.2rem; }
       li { margin-bottom: 0.5rem; }
+
+      /* Ingredient Search Styles */
+      .ingredient-search-wrapper {
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+        margin-top: 0.5rem;
+      }
+      .search-box-container {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        flex-wrap: wrap;
+      }
+      .search-input-field {
+        position: relative;
+        flex: 1;
+        display: flex;
+        align-items: center;
+      }
+      .search-icon {
+        position: absolute;
+        left: 0.85rem;
+        color: var(--muted);
+        pointer-events: none;
+      }
+      .search-input {
+        width: 100%;
+        padding: 0.75rem 2.5rem 0.75rem 2.5rem;
+        border-radius: 8px;
+        border: 1px solid var(--card-border);
+        background: #090d16;
+        color: var(--text);
+        font-size: 0.95rem;
+        outline: none;
+        transition: border-color 0.2s ease, box-shadow 0.2s ease;
+      }
+      .search-input:focus {
+        border-color: var(--primary);
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.25);
+      }
+      .search-clear-btn {
+        position: absolute;
+        right: 0.75rem;
+        background: transparent;
+        border: none;
+        color: var(--muted);
+        font-size: 1.1rem;
+        cursor: pointer;
+        padding: 0.25rem;
+      }
+      .search-clear-btn:hover {
+        color: var(--text);
+      }
+      .search-count-label {
+        font-size: 0.85rem;
+        color: var(--muted);
+        white-space: nowrap;
+      }
+
+      .selected-ingredient-banner {
+        background: rgba(99, 102, 241, 0.15);
+        border: 1px solid rgba(99, 102, 241, 0.4);
+        padding: 0.75rem 1rem;
+        border-radius: 6px;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+      .btn-secondary-sm {
+        background: #334155;
+        color: #f8fafc;
+        border: none;
+        padding: 0.35rem 0.75rem;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        cursor: pointer;
+      }
+      .btn-secondary-sm:hover {
+        background: #475569;
+      }
+
+      .ingredient-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+        gap: 1rem;
+        max-height: 480px;
+        overflow-y: auto;
+        padding-right: 0.25rem;
+      }
+      .no-results {
+        grid-column: 1 / -1;
+        padding: 2rem;
+        text-align: center;
+        color: var(--muted);
+        background: #090d16;
+        border-radius: 8px;
+        border: 1px dashed var(--card-border);
+      }
+
+      .ingredient-card-item {
+        background: #090d16;
+        border: 1px solid var(--card-border);
+        border-radius: 8px;
+        padding: 1rem;
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+        cursor: pointer;
+        transition: transform 0.15s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+      }
+      .ingredient-card-item:hover {
+        transform: translateY(-2px);
+        border-color: var(--primary);
+        box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+      }
+      .ingredient-card-item.selected {
+        border-color: var(--primary);
+        background: rgba(99, 102, 241, 0.1);
+      }
+
+      .card-top {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 0.5rem;
+      }
+      .ingredient-title-area {
+        flex: 1;
+      }
+      .ingredient-title {
+        margin: 0;
+        font-size: 1rem;
+        font-weight: 600;
+        color: var(--text);
+      }
+      .ingredient-de-title {
+        font-size: 0.85rem;
+        color: var(--muted);
+        font-weight: 400;
+      }
+
+      .trait-badge {
+        font-size: 0.7rem;
+        font-weight: 700;
+        padding: 0.2rem 0.45rem;
+        border-radius: 4px;
+        text-transform: uppercase;
+        letter-spacing: 0.03em;
+        white-space: nowrap;
+      }
+      .trait-vegan {
+        background: rgba(16, 185, 129, 0.2);
+        color: #34d399;
+        border: 1px solid rgba(16, 185, 129, 0.3);
+      }
+      .trait-vegetarian {
+        background: rgba(59, 130, 246, 0.2);
+        color: #60a5fa;
+        border: 1px solid rgba(59, 130, 246, 0.3);
+      }
+      .trait-omnivore {
+        background: rgba(245, 158, 11, 0.2);
+        color: #fbbf24;
+        border: 1px solid rgba(245, 158, 11, 0.3);
+      }
+
+      .card-details {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.4rem;
+        font-size: 0.8rem;
+      }
+      .detail-chip {
+        background: #1e293b;
+        padding: 0.15rem 0.5rem;
+        border-radius: 4px;
+        color: #cbd5e1;
+      }
+      .parent-chip {
+        background: rgba(99, 102, 241, 0.15);
+        color: #a5b4fc;
+      }
+      .chip-label {
+        color: var(--muted);
+        margin-right: 0.25rem;
+      }
+
+      .aliases-footer {
+        font-size: 0.78rem;
+        color: var(--muted);
+        line-height: 1.3;
+        margin-top: auto;
+      }
+      .aliases-title {
+        color: #64748b;
+        font-weight: 600;
+      }
     </style>
   </head>
   <body>
