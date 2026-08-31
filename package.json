@@ -4,7 +4,7 @@
   "type": "module",
   "scripts": {
     "dev": "concurrently \"pnpm dev:server\" \"pnpm dev:client\"",
-    "dev:server": "node --watch --experimental-strip-types src/server/index.ts",
+    "dev:server": "node --watch src/server/index.ts",
     "dev:client": "vite",
     "build": "pnpm build:client && pnpm build:server",
     "build:client": "vite build",
@@ -25,7 +25,7 @@
     "react-dom": "^19.2.8"
   },
   "devDependencies": {
-    "@types/node": "^22.13.4",
+    "@types/node": "^24.0.0",
     "@types/react": "^19.2.18",
     "@types/react-dom": "^19.2.5",
     "@vitejs/plugin-react": "^4.3.4",
