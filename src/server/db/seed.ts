@@ -700,12 +700,14 @@ export async function seedIngredients(dbInstance: any) {
       },
     });
 
-  // Pass 2: Set parentGroupId for items with parent link
+  // Pass 2: Set parentGroupId for items with parent link inside atomic transaction
   const itemsWithParent = CANONICAL_INGREDIENTS.filter((i) => i.parentGroupId);
-  for (const item of itemsWithParent) {
-    await dbInstance
-      .update(ingredients)
-      .set({ parentGroupId: item.parentGroupId })
-      .where(eq(ingredients.id, item.id));
+  if (itemsWithParent.length > 0) {
+    for (const item of itemsWithParent) {
+      await dbInstance
+        .update(ingredients)
+        .set({ parentGroupId: item.parentGroupId })
+        .where(eq(ingredients.id, item.id));
+    }
   }
 }

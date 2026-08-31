@@ -9,13 +9,40 @@ interface IngredientSearchProps {
   onSelect?: (ingredient: IngredientDto) => void;
 }
 
+const TRAIT_BADGE_CLASSES: Record<string, string> = {
+  VEGAN: 'trait-badge trait-vegan',
+  VEGETARIAN: 'trait-badge trait-vegetarian',
+  OMNIVORE: 'trait-badge trait-omnivore',
+};
+
 export function IngredientSearch({ onSelect }: IngredientSearchProps) {
   const [query, setQuery] = useState('');
   const [ingredients, setIngredients] = useState<IngredientDto[]>([]);
+  const [catalogMap, setCatalogMap] = useState<Record<string, IngredientDto>>({});
   const [selectedIngredient, setSelectedIngredient] = useState<IngredientDto | null>(null);
   const [loading, setLoading] = useState(false);
-  const [allIngredientsMap, setAllIngredientsMap] = useState<Record<string, IngredientDto>>({});
 
+  // Load full catalog once on mount to build complete parent lookup map
+  useEffect(() => {
+    async function loadCatalog() {
+      try {
+        const res = await client.api.ingredients.$get();
+        if (res.ok) {
+          const data = await res.json();
+          const map: Record<string, IngredientDto> = {};
+          data.forEach((item) => {
+            map[item.id] = item;
+          });
+          setCatalogMap(map);
+        }
+      } catch (err) {
+        console.error('Error fetching full catalog map:', err);
+      }
+    }
+    loadCatalog();
+  }, []);
+
+  // Search when query changes
   useEffect(() => {
     let active = true;
     async function fetchIngredients() {
@@ -27,12 +54,6 @@ export function IngredientSearch({ onSelect }: IngredientSearchProps) {
         if (res.ok && active) {
           const data = await res.json();
           setIngredients(data);
-          // Build lookup map for parent group names
-          const map: Record<string, IngredientDto> = {};
-          data.forEach((item) => {
-            map[item.id] = item;
-          });
-          setAllIngredientsMap((prev) => ({ ...prev, ...map }));
         }
       } catch (err) {
         console.error('Error searching ingredients:', err);
@@ -52,19 +73,6 @@ export function IngredientSearch({ onSelect }: IngredientSearchProps) {
     setSelectedIngredient(ing);
     if (onSelect) {
       onSelect(ing);
-    }
-  };
-
-  const getTraitBadgeClass = (trait: DietaryTrait) => {
-    switch (trait) {
-      case 'VEGAN':
-        return 'trait-badge trait-vegan';
-      case 'VEGETARIAN':
-        return 'trait-badge trait-vegetarian';
-      case 'OMNIVORE':
-        return 'trait-badge trait-omnivore';
-      default:
-        return 'trait-badge';
     }
   };
 
@@ -98,7 +106,7 @@ export function IngredientSearch({ onSelect }: IngredientSearchProps) {
         <div className="selected-ingredient-banner">
           <div className="selected-info">
             <strong>Selected Ingredient:</strong> {selectedIngredient.primaryNameEn} ({selectedIngredient.primaryNameDe})
-            <span className={getTraitBadgeClass(selectedIngredient.defaultTrait)} style={{ marginLeft: '0.5rem' }}>
+            <span className={TRAIT_BADGE_CLASSES[selectedIngredient.defaultTrait] || 'trait-badge'} style={{ marginLeft: '0.5rem' }}>
               {selectedIngredient.defaultTrait}
             </span>
           </div>
@@ -115,7 +123,7 @@ export function IngredientSearch({ onSelect }: IngredientSearchProps) {
           </div>
         ) : (
           ingredients.map((ing) => {
-            const parent = ing.parentGroupId ? allIngredientsMap[ing.parentGroupId] : null;
+            const parent = ing.parentGroupId ? catalogMap[ing.parentGroupId] : null;
             const isSelected = selectedIngredient?.id === ing.id;
             return (
               <div
@@ -129,7 +137,7 @@ export function IngredientSearch({ onSelect }: IngredientSearchProps) {
                       {ing.primaryNameEn} <span className="ingredient-de-title">/ {ing.primaryNameDe}</span>
                     </h3>
                   </div>
-                  <span className={getTraitBadgeClass(ing.defaultTrait)}>{ing.defaultTrait}</span>
+                  <span className={TRAIT_BADGE_CLASSES[ing.defaultTrait] || 'trait-badge'}>{ing.defaultTrait}</span>
                 </div>
 
                 <div className="card-details">
@@ -140,7 +148,7 @@ export function IngredientSearch({ onSelect }: IngredientSearchProps) {
                   )}
                   {ing.parentGroupId && (
                     <div className="detail-chip parent-chip">
-                      <span className="chip-label">Parent Group:</span> {parent ? parent.primaryNameEn : ing.parentGroupId}
+                      <span className="chip-label">Parent Group:</span> {parent ? `${parent.primaryNameEn} (${parent.primaryNameDe})` : ing.parentGroupId}
                     </div>
                   )}
                 </div>

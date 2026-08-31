@@ -67,6 +67,13 @@ describe('Canonical Ingredient Taxonomy & Seed Catalog API', () => {
     expect(listPanko.some((i) => i.id === 'ing_breadcrumbs')).toBe(true);
   });
 
+  it('matches query strings with minor typos using fuzzy matching algorithm (e.g. "buttr" -> Butter, "milkh" -> Milk)', async () => {
+    const reqFuzzy = new Request('http://localhost/api/ingredients?q=buttr');
+    const resFuzzy = await app.fetch(reqFuzzy);
+    const listFuzzy: IngredientDto[] = await resFuzzy.json();
+    expect(listFuzzy.some((i) => i.id === 'ing_butter')).toBe(true);
+  });
+
   it('returns empty array when query does not match any primary name or alias', async () => {
     const req = new Request('http://localhost/api/ingredients?q=nonexistent_xyz_ingredient');
     const res = await app.fetch(req);
