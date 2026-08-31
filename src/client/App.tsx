@@ -3,6 +3,8 @@ import { hc } from 'hono/client';
 import type { AppType } from '../server/index.ts';
 import type { HealthCheckResponse, IngredientDto } from '../shared/types.ts';
 
+import { AuthBar } from './AuthBar.tsx';
+
 const client = hc<AppType>('/');
 
 export function App() {
@@ -37,6 +39,9 @@ export function App() {
       <p style={{ color: 'var(--muted)' }}>
         Hono API server, Vite + React SPA frontend, and Drizzle SQLite database running under Node 24 native TypeScript.
       </p>
+
+      <AuthBar />
+
 
       {error && <div className="card" style={{ borderColor: '#ef4444', color: '#ef4444' }}>Error: {error}</div>}
 

@@ -17,3 +17,28 @@ export const recipes = sqliteTable('recipes', {
   overrideTrait: text('override_trait'),
   createdAt: text('created_at').notNull(),
 });
+
+export const users = sqliteTable('users', {
+  id: text('id').primaryKey(),
+  username: text('username').notNull().unique(),
+  displayName: text('display_name').notNull(),
+  createdAt: text('created_at').notNull(),
+});
+
+export const authenticators = sqliteTable('authenticators', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  credentialId: text('credential_id').notNull().unique(),
+  publicKey: text('public_key').notNull(),
+  counter: integer('counter').notNull(),
+  transports: text('transports'), // JSON array of AuthenticatorTransport
+  createdAt: text('created_at').notNull(),
+});
+
+export const sessions = sqliteTable('sessions', {
+  id: text('id').primaryKey(),
+  userId: text('user_id').notNull().references(() => users.id, { onDelete: 'cascade' }),
+  expiresAt: text('expires_at').notNull(),
+  createdAt: text('created_at').notNull(),
+});
+

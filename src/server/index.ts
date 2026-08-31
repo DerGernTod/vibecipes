@@ -5,9 +5,12 @@ import { ingredients } from './db/schema.ts';
 import { count } from 'drizzle-orm';
 import type { HealthCheckResponse, IngredientDto } from '../shared/types.ts';
 
+import { authRoutes } from './auth.ts';
+
 export const app = new Hono();
 
 const routes = app
+  .route('/api/auth', authRoutes)
   .get('/api/health', async (c) => {
     const [{ value }] = await db.select({ value: count() }).from(ingredients);
     const res: HealthCheckResponse = {
@@ -36,21 +39,47 @@ export type AppType = typeof routes;
 // Auto seed SQLite table on startup if empty
 export async function initDb() {
   try {
-    const [{ value }] = await db.select({ value: count() }).from(ingredients).catch(async () => {
-      // Table doesn't exist yet, create schema
-      const client = (db as any).$client;
-      await client.execute(`
-        CREATE TABLE IF NOT EXISTS ingredients (
-          id TEXT PRIMARY KEY,
-          primary_name_en TEXT NOT NULL,
-          primary_name_de TEXT NOT NULL,
-          aliases_json TEXT NOT NULL,
-          density_g_per_ml REAL,
-          default_trait TEXT NOT NULL
-        );
-      `);
-      return await db.select({ value: count() }).from(ingredients);
-    });
+    const client = (db as any).$client;
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS ingredients (
+        id TEXT PRIMARY KEY,
+        primary_name_en TEXT NOT NULL,
+        primary_name_de TEXT NOT NULL,
+        aliases_json TEXT NOT NULL,
+        density_g_per_ml REAL,
+        default_trait TEXT NOT NULL
+      );
+    `);
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS users (
+        id TEXT PRIMARY KEY,
+        username TEXT NOT NULL UNIQUE,
+        display_name TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      );
+    `);
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS authenticators (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        credential_id TEXT NOT NULL UNIQUE,
+        public_key TEXT NOT NULL,
+        counter INTEGER NOT NULL,
+        transports TEXT,
+        created_at TEXT NOT NULL
+      );
+    `);
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS sessions (
+        id TEXT PRIMARY KEY,
+        user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        expires_at TEXT NOT NULL,
+        created_at TEXT NOT NULL
+      );
+    `);
+
+
+    const [{ value }] = await db.select({ value: count() }).from(ingredients);
 
     if (Number(value) === 0) {
       await db.insert(ingredients).values([

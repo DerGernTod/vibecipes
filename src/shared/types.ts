@@ -15,3 +15,30 @@ export interface HealthCheckResponse {
   database: 'connected';
   ingredientCount: number;
 }
+
+export interface UserDto {
+  id: string;
+  username: string;
+  displayName: string;
+  createdAt: string;
+}
+
+export interface AuthStatusResponse {
+  user: UserDto | null;
+}
+
+export interface RegisterOptionsRequest {
+  username: string;
+  displayName?: string;
+}
+
+export interface LoginOptionsRequest {
+  username?: string;
+}
+
+export interface VerifyAuthResponse {
+  verified: boolean;
+  user?: UserDto;
+  error?: string;
+}
+
