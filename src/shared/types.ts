@@ -7,6 +7,7 @@ export interface IngredientDto {
   aliases: string[];
   densityGPerMl: number | null;
   defaultTrait: DietaryTrait;
+  parentGroupId: string | null;
 }
 
 export interface HealthCheckResponse {

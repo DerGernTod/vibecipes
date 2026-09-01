@@ -4,8 +4,8 @@ import { db } from './db/index.ts';
 import { ingredients } from './db/schema.ts';
 import { count } from 'drizzle-orm';
 import type { HealthCheckResponse, IngredientDto } from '../shared/types.ts';
-
 import { authRoutes } from './auth.ts';
+import { seedIngredients } from './db/seed.ts';
 
 export const app = new Hono();
 
@@ -22,24 +22,88 @@ const routes = app
     return c.json(res);
   })
   .get('/api/ingredients', async (c) => {
+    const query = c.req.query('q') || c.req.query('query');
     const list = await db.select().from(ingredients);
-    const result: IngredientDto[] = list.map((item) => ({
+
+    let mapped: IngredientDto[] = list.map((item) => ({
       id: item.id,
       primaryNameEn: item.primaryNameEn,
       primaryNameDe: item.primaryNameDe,
       aliases: JSON.parse(item.aliasesJson),
       densityGPerMl: item.densityGPerMl,
       defaultTrait: item.defaultTrait as any,
+      parentGroupId: item.parentGroupId ?? null,
     }));
-    return c.json(result);
+
+    if (query && query.trim().length > 0) {
+      const q = query.trim().toLowerCase();
+      mapped = mapped.filter((item) => {
+        const matchEn = fuzzyMatch(q, item.primaryNameEn);
+        const matchDe = fuzzyMatch(q, item.primaryNameDe);
+        const matchAlias = item.aliases.some((alias) => fuzzyMatch(q, alias));
+        return matchEn || matchDe || matchAlias;
+      });
+    }
+
+    return c.json(mapped);
   });
+
+function levenshteinDistance(a: string, b: string): number {
+  if (a.length === 0) return b.length;
+  if (b.length === 0) return a.length;
+  const matrix: number[][] = [];
+  for (let i = 0; i <= b.length; i++) matrix[i] = [i];
+  for (let j = 0; j <= a.length; j++) matrix[0][j] = j;
+
+  for (let i = 1; i <= b.length; i++) {
+    for (let j = 1; j <= a.length; j++) {
+      if (b.charAt(i - 1) === a.charAt(j - 1)) {
+        matrix[i][j] = matrix[i - 1][j - 1];
+      } else {
+        matrix[i][j] = Math.min(
+          matrix[i - 1][j - 1] + 1,
+          matrix[i][j - 1] + 1,
+          matrix[i - 1][j] + 1
+        );
+      }
+    }
+  }
+  return matrix[b.length][a.length];
+}
+
+function fuzzyMatch(query: string, target: string): boolean {
+  const q = query.toLowerCase().trim();
+  const t = target.toLowerCase().trim();
+  if (t.includes(q)) return true;
+
+  const qTokens = q.split(/\s+/);
+  const tTokens = t.split(/\s+/);
+  if (qTokens.every((qt) => tTokens.some((tt) => tt.startsWith(qt) || tt.includes(qt)))) {
+    return true;
+  }
+
+  if (q.length >= 4) {
+    for (const tt of tTokens) {
+      if (levenshteinDistance(q, tt) <= (q.length > 6 ? 2 : 1)) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
 
 export type AppType = typeof routes;
 
-// Auto seed SQLite table on startup if empty
+// Auto seed SQLite table on startup
 export async function initDb() {
   try {
     const client = (db as any).$client;
+    try {
+      await client.execute(`PRAGMA journal_mode = WAL;`);
+      await client.execute(`PRAGMA busy_timeout = 5000;`);
+    } catch {
+      // Ignored if unsupported
+    }
     await client.execute(`
       CREATE TABLE IF NOT EXISTS ingredients (
         id TEXT PRIMARY KEY,
@@ -47,9 +111,16 @@ export async function initDb() {
         primary_name_de TEXT NOT NULL,
         aliases_json TEXT NOT NULL,
         density_g_per_ml REAL,
-        default_trait TEXT NOT NULL
+        default_trait TEXT NOT NULL,
+        parent_group_id TEXT
       );
     `);
+    try {
+      await client.execute(`ALTER TABLE ingredients ADD COLUMN parent_group_id TEXT;`);
+    } catch {
+      // Column already exists
+    }
+
     await client.execute(`
       CREATE TABLE IF NOT EXISTS users (
         id TEXT PRIMARY KEY,
@@ -78,29 +149,8 @@ export async function initDb() {
       );
     `);
 
-
-    const [{ value }] = await db.select({ value: count() }).from(ingredients);
-
-    if (Number(value) === 0) {
-      await db.insert(ingredients).values([
-        {
-          id: 'ing_oat_milk',
-          primaryNameEn: 'Oat Milk',
-          primaryNameDe: 'Hafermilch',
-          aliasesJson: JSON.stringify(['Oat Milk', 'Oatmilk', 'Hafermilch']),
-          densityGPerMl: 1.03,
-          defaultTrait: 'VEGAN',
-        },
-        {
-          id: 'ing_butter',
-          primaryNameEn: 'Butter',
-          primaryNameDe: 'Butter',
-          aliasesJson: JSON.stringify(['Butter', 'Unsalted Butter', 'Süßrahmbutter']),
-          densityGPerMl: 0.911,
-          defaultTrait: 'VEGETARIAN',
-        },
-      ]);
-    }
+    // Execute 2-pass idempotent ingredient seed
+    await seedIngredients(db);
   } catch (err) {
     console.error('Error auto-initializing database:', err);
   }
