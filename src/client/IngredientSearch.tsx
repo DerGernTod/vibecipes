@@ -82,10 +82,6 @@ export function IngredientSearch({ onSelect }: IngredientSearchProps) {
     return lang === 'de' ? ing.primaryNameDe : ing.primaryNameEn;
   };
 
-  const getSecondaryName = (ing: IngredientDto) => {
-    return lang === 'de' ? ing.primaryNameEn : ing.primaryNameDe;
-  };
-
   return (
     <div className="ingredient-search-wrapper">
       <div className="search-box-container">
@@ -119,7 +115,6 @@ export function IngredientSearch({ onSelect }: IngredientSearchProps) {
         <div className="selected-ingredient-banner">
           <div className="selected-info">
             <strong>{t("Selected Ingredient:", "Ausgewählte Zutat:")}</strong> {getPrimaryName(selectedIngredient)}
-            <span className="ingredient-secondary-name"> ({getSecondaryName(selectedIngredient)})</span>
             <span className={TRAIT_BADGE_CLASSES[selectedIngredient.defaultTrait] || 'trait-badge'} style={{ marginLeft: '0.5rem' }}>
               {selectedIngredient.defaultTrait}
             </span>
@@ -143,7 +138,6 @@ export function IngredientSearch({ onSelect }: IngredientSearchProps) {
             const parent = ing.parentGroupId ? catalogMap[ing.parentGroupId] : null;
             const isSelected = selectedIngredient?.id === ing.id;
             const primaryName = getPrimaryName(ing);
-            const secondaryName = getSecondaryName(ing);
             const parentName = parent ? getPrimaryName(parent) : ing.parentGroupId;
 
             return (
@@ -154,9 +148,7 @@ export function IngredientSearch({ onSelect }: IngredientSearchProps) {
               >
                 <div className="card-top">
                   <div className="ingredient-title-area">
-                    <h3 className="ingredient-title">
-                      {primaryName} <span className="ingredient-de-title">({secondaryName})</span>
-                    </h3>
+                    <h3 className="ingredient-title">{primaryName}</h3>
                   </div>
                   <span className={TRAIT_BADGE_CLASSES[ing.defaultTrait] || 'trait-badge'}>{ing.defaultTrait}</span>
                 </div>
