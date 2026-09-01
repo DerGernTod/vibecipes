@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { hc } from 'hono/client';
 import type { AppType } from '../server/index.ts';
 import type { IngredientDto, DietaryTrait } from '../shared/types.ts';
+import { useLanguage } from './LanguageContext.tsx';
 
 const client = hc<AppType>('/');
 
@@ -16,6 +17,7 @@ const TRAIT_BADGE_CLASSES: Record<string, string> = {
 };
 
 export function IngredientSearch({ onSelect }: IngredientSearchProps) {
+  const { lang, t } = useLanguage();
   const [query, setQuery] = useState('');
   const [ingredients, setIngredients] = useState<IngredientDto[]>([]);
   const [catalogMap, setCatalogMap] = useState<Record<string, IngredientDto>>({});
@@ -76,6 +78,14 @@ export function IngredientSearch({ onSelect }: IngredientSearchProps) {
     }
   };
 
+  const getPrimaryName = (ing: IngredientDto) => {
+    return lang === 'de' ? ing.primaryNameDe : ing.primaryNameEn;
+  };
+
+  const getSecondaryName = (ing: IngredientDto) => {
+    return lang === 'de' ? ing.primaryNameEn : ing.primaryNameDe;
+  };
+
   return (
     <div className="ingredient-search-wrapper">
       <div className="search-box-container">
@@ -87,31 +97,35 @@ export function IngredientSearch({ onSelect }: IngredientSearchProps) {
           <input
             type="text"
             className="search-input"
-            placeholder="Search catalog by EN/DE name or alias (e.g. Hafer, Butter, Panko)..."
+            placeholder={t(
+              "Search catalog by name or alias (e.g. Oat, Hafer, Butter, Panko)...",
+              "Katalog nach Name oder Alias durchsuchen (z.B. Hafer, Butter, Panko)..."
+            )}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
           />
           {query && (
-            <button className="search-clear-btn" onClick={() => setQuery('')} title="Clear search">
+            <button className="search-clear-btn" onClick={() => setQuery('')} title={t("Clear search", "Suche zurücksetzen")}>
               ✕
             </button>
           )}
         </div>
         <div className="search-count-label">
-          {loading ? 'Searching...' : `${ingredients.length} catalog items`}
+          {loading ? t("Searching...", "Suche läuft...") : `${ingredients.length} ${t("catalog items", "Einträge")}`}
         </div>
       </div>
 
       {selectedIngredient && (
         <div className="selected-ingredient-banner">
           <div className="selected-info">
-            <strong>Selected Ingredient:</strong> {selectedIngredient.primaryNameEn} ({selectedIngredient.primaryNameDe})
+            <strong>{t("Selected Ingredient:", "Ausgewählte Zutat:")}</strong> {getPrimaryName(selectedIngredient)}
+            <span className="ingredient-secondary-name"> ({getSecondaryName(selectedIngredient)})</span>
             <span className={TRAIT_BADGE_CLASSES[selectedIngredient.defaultTrait] || 'trait-badge'} style={{ marginLeft: '0.5rem' }}>
               {selectedIngredient.defaultTrait}
             </span>
           </div>
           <button className="btn-secondary-sm" onClick={() => setSelectedIngredient(null)}>
-            Clear Selection
+            {t("Clear Selection", "Auswahl aufheben")}
           </button>
         </div>
       )}
@@ -119,12 +133,19 @@ export function IngredientSearch({ onSelect }: IngredientSearchProps) {
       <div className="ingredient-grid">
         {ingredients.length === 0 && !loading ? (
           <div className="no-results">
-            No matching canonical ingredients found for &quot;{query}&quot;. Try searching for &quot;Milk&quot;, &quot;Hafer&quot;, &quot;Zucker&quot;, or &quot;Butter&quot;.
+            {t(
+              `No matching canonical ingredients found for "${query}". Try searching for "Milk", "Hafer", "Sugar", or "Butter".`,
+              `Keine passenden kanonischen Zutaten für "${query}" gefunden. Versuchen Sie es mit "Milch", "Hafer", "Zucker" oder "Butter".`
+            )}
           </div>
         ) : (
           ingredients.map((ing) => {
             const parent = ing.parentGroupId ? catalogMap[ing.parentGroupId] : null;
             const isSelected = selectedIngredient?.id === ing.id;
+            const primaryName = getPrimaryName(ing);
+            const secondaryName = getSecondaryName(ing);
+            const parentName = parent ? getPrimaryName(parent) : ing.parentGroupId;
+
             return (
               <div
                 key={ing.id}
@@ -134,7 +155,7 @@ export function IngredientSearch({ onSelect }: IngredientSearchProps) {
                 <div className="card-top">
                   <div className="ingredient-title-area">
                     <h3 className="ingredient-title">
-                      {ing.primaryNameEn} <span className="ingredient-de-title">/ {ing.primaryNameDe}</span>
+                      {primaryName} <span className="ingredient-de-title">({secondaryName})</span>
                     </h3>
                   </div>
                   <span className={TRAIT_BADGE_CLASSES[ing.defaultTrait] || 'trait-badge'}>{ing.defaultTrait}</span>
@@ -143,18 +164,18 @@ export function IngredientSearch({ onSelect }: IngredientSearchProps) {
                 <div className="card-details">
                   {ing.densityGPerMl !== null && (
                     <div className="detail-chip">
-                      <span className="chip-label">Density:</span> {ing.densityGPerMl} g/ml
+                      <span className="chip-label">{t("Density:", "Dichte:")}</span> {ing.densityGPerMl} g/ml
                     </div>
                   )}
                   {ing.parentGroupId && (
                     <div className="detail-chip parent-chip">
-                      <span className="chip-label">Parent Group:</span> {parent ? `${parent.primaryNameEn} (${parent.primaryNameDe})` : ing.parentGroupId}
+                      <span className="chip-label">{t("Parent Group:", "Übergeordnet:")}</span> {parentName}
                     </div>
                   )}
                 </div>
 
                 <div className="aliases-footer">
-                  <span className="aliases-title">Aliases:</span> {ing.aliases.join(', ')}
+                  <span className="aliases-title">{t("Aliases:", "Aliase:")}</span> {ing.aliases.join(', ')}
                 </div>
               </div>
             );
