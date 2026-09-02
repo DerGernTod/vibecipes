@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 
-export type PrototypeVariantKey = 'W1' | 'W2' | 'W3';
+export type PrototypeVariantKey = 'S1' | 'S2' | 'S3';
 
 export interface VariantInfo {
   key: PrototypeVariantKey;
@@ -10,19 +10,19 @@ export interface VariantInfo {
 
 export const VARIANTS: VariantInfo[] = [
   {
-    key: 'W1',
-    name: 'Pinterest Masonry Cards',
-    description: 'Dynamic staggered masonry grid with gradient overlays and floating trait pills.',
+    key: 'S1',
+    name: 'Pill Filter Bar + Search',
+    description: 'Header search input + category pills (Breakfast, Lunch, Dinner...) + full-size + card.',
   },
   {
-    key: 'W2',
-    name: 'Bento Box Gallery',
-    description: 'Modern asymmetric bento grid with a 2x2 featured hero card and sharp geometric tiles.',
+    key: 'S2',
+    name: 'Command Spotlight + Chips',
+    description: 'Omnibox command search + interactive category drawer + full-size + card.',
   },
   {
-    key: 'W3',
-    name: 'Editorial Magazine Wall',
-    description: 'Trending horizontal carousel header + compact 4-column photo wall with cook times.',
+    key: 'S3',
+    name: 'Visual Category Facets',
+    description: 'Icon category chips + trait filter toggles + full-size + card.',
   },
 ];
 
@@ -112,7 +112,7 @@ export function PrototypeSwitcher({ currentVariant, onSelectVariant }: Prototype
             fontSize: '0.75rem',
           }}
         >
-          WALL {activeVariant.key}
+          SEARCH {activeVariant.key}
         </span>
         <span style={{ fontWeight: 600, fontSize: '0.88rem' }}>{activeVariant.name}</span>
         <span style={{ color: '#94a3b8', fontSize: '0.78rem', display: 'inline-block', maxWidth: '280px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>

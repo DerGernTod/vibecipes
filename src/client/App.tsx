@@ -11,9 +11,9 @@ import { LanguageProvider, LanguageToggle, useLanguage } from './LanguageContext
 
 // Prototype Imports
 import { PrototypeSwitcher, type PrototypeVariantKey } from './prototypes/PrototypeSwitcher.tsx';
-import { WallVariantW1_Masonry } from './prototypes/WallVariantW1_Masonry.tsx';
-import { WallVariantW2_Bento } from './prototypes/WallVariantW2_Bento.tsx';
-import { WallVariantW3_Editorial } from './prototypes/WallVariantW3_Editorial.tsx';
+import { WallSearchS1_PillBar } from './prototypes/WallSearchS1_PillBar.tsx';
+import { WallSearchS2_Spotlight } from './prototypes/WallSearchS2_Spotlight.tsx';
+import { WallSearchS3_CategoryChips } from './prototypes/WallSearchS3_CategoryChips.tsx';
 
 const client = hc<AppType>('/');
 
@@ -29,7 +29,7 @@ function AppContent() {
   const [prototypeVariant, setPrototypeVariant] = useState<PrototypeVariantKey>(() => {
     const params = new URLSearchParams(window.location.search);
     const v = params.get('variant')?.toUpperCase();
-    return v === 'W2' || v === 'W3' ? (v as PrototypeVariantKey) : 'W1';
+    return v === 'S2' || v === 'S3' ? (v as PrototypeVariantKey) : 'S1';
   });
 
   const [activeTab, setActiveTab] = useState<ActiveTab>('recipes');
@@ -120,9 +120,9 @@ function AppContent() {
         <div style={{ marginTop: '1rem' }}>
           {recipeViewMode === 'list' && (
             <div>
-              {prototypeVariant === 'W1' && <WallVariantW1_Masonry />}
-              {prototypeVariant === 'W2' && <WallVariantW2_Bento />}
-              {prototypeVariant === 'W3' && <WallVariantW3_Editorial />}
+              {prototypeVariant === 'S1' && <WallSearchS1_PillBar />}
+              {prototypeVariant === 'S2' && <WallSearchS2_Spotlight />}
+              {prototypeVariant === 'S3' && <WallSearchS3_CategoryChips />}
             </div>
           )}
 
