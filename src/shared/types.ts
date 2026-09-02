@@ -43,3 +43,78 @@ export interface VerifyAuthResponse {
   error?: string;
 }
 
+export interface RecipeStepIngredientDto {
+  id: string;
+  stepId: string;
+  canonicalIngredientId: string;
+  rawText: string;
+  amount: number;
+  unit: string;
+  preparationNote: string | null;
+  ingredient?: IngredientDto;
+}
+
+export interface RecipeStepDto {
+  id: string;
+  recipeId: string;
+  stepIndex: number;
+  instruction: string;
+  timerSec: number | null;
+  ingredients: RecipeStepIngredientDto[];
+}
+
+export interface AggregatedIngredientDto {
+  canonicalIngredientId: string;
+  ingredient?: IngredientDto;
+  totalAmount: number;
+  unit: string;
+  preparationNotes: string[];
+}
+
+export interface RecipeDto {
+  id: string;
+  ownerId: string | null;
+  ownerDisplayName?: string | null;
+  title: string;
+  description: string | null;
+  servings: number;
+  overrideTrait: DietaryTrait | null;
+  calculatedTrait: DietaryTrait;
+  effectiveTrait: DietaryTrait;
+  steps: RecipeStepDto[];
+  aggregatedIngredients?: AggregatedIngredientDto[];
+  createdAt: string;
+  updatedAt: string | null;
+}
+
+export interface CreateRecipeStepIngredientInput {
+  canonicalIngredientId: string;
+  rawText?: string;
+  amount: number;
+  unit: string;
+  preparationNote?: string;
+}
+
+export interface CreateRecipeStepInput {
+  instruction: string;
+  timerSec?: number | null;
+  ingredients: CreateRecipeStepIngredientInput[];
+}
+
+export interface CreateRecipeRequest {
+  title: string;
+  description?: string;
+  servings?: number;
+  overrideTrait?: DietaryTrait | null;
+  steps: CreateRecipeStepInput[];
+}
+
+export interface UpdateRecipeRequest {
+  title?: string;
+  description?: string;
+  servings?: number;
+  overrideTrait?: DietaryTrait | null;
+  steps?: CreateRecipeStepInput[];
+}
+
+

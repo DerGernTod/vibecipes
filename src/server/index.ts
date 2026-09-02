@@ -5,12 +5,14 @@ import { ingredients } from './db/schema.ts';
 import { count } from 'drizzle-orm';
 import type { HealthCheckResponse, IngredientDto } from '../shared/types.ts';
 import { authRoutes } from './auth.ts';
+import { recipeRoutes } from './recipes.ts';
 import { seedIngredients } from './db/seed.ts';
 
 export const app = new Hono();
 
 const routes = app
   .route('/api/auth', authRoutes)
+  .route('/api/recipes', recipeRoutes)
   .get('/api/health', async (c) => {
     const [{ value }] = await db.select({ value: count() }).from(ingredients);
     const res: HealthCheckResponse = {
@@ -146,6 +148,47 @@ export async function initDb() {
         user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE,
         expires_at TEXT NOT NULL,
         created_at TEXT NOT NULL
+      );
+    `);
+
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS recipes (
+        id TEXT PRIMARY KEY,
+        owner_id TEXT REFERENCES users(id) ON DELETE CASCADE,
+        title TEXT NOT NULL,
+        description TEXT,
+        servings INTEGER NOT NULL DEFAULT 4,
+        override_trait TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT
+      );
+    `);
+    try {
+      await client.execute(`ALTER TABLE recipes ADD COLUMN owner_id TEXT REFERENCES users(id) ON DELETE CASCADE;`);
+    } catch {}
+    try {
+      await client.execute(`ALTER TABLE recipes ADD COLUMN updated_at TEXT;`);
+    } catch {}
+
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS recipe_steps (
+        id TEXT PRIMARY KEY,
+        recipe_id TEXT NOT NULL REFERENCES recipes(id) ON DELETE CASCADE,
+        step_index INTEGER NOT NULL,
+        instruction TEXT NOT NULL,
+        timer_sec INTEGER
+      );
+    `);
+
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS recipe_step_ingredients (
+        id TEXT PRIMARY KEY,
+        step_id TEXT NOT NULL REFERENCES recipe_steps(id) ON DELETE CASCADE,
+        canonical_ingredient_id TEXT NOT NULL REFERENCES ingredients(id) ON DELETE CASCADE,
+        raw_text TEXT NOT NULL,
+        amount REAL NOT NULL,
+        unit TEXT NOT NULL,
+        preparation_note TEXT
       );
     `);
 

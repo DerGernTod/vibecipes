@@ -12,11 +12,37 @@ export const ingredients = sqliteTable('ingredients', {
 
 export const recipes = sqliteTable('recipes', {
   id: text('id').primaryKey(),
+  ownerId: text('owner_id').references(() => users.id, { onDelete: 'cascade' }),
   title: text('title').notNull(),
   description: text('description'),
   servings: integer('servings').notNull().default(4),
   overrideTrait: text('override_trait'),
   createdAt: text('created_at').notNull(),
+  updatedAt: text('updated_at'),
+});
+
+export const recipeSteps = sqliteTable('recipe_steps', {
+  id: text('id').primaryKey(),
+  recipeId: text('recipe_id')
+    .notNull()
+    .references(() => recipes.id, { onDelete: 'cascade' }),
+  stepIndex: integer('step_index').notNull(),
+  instruction: text('instruction').notNull(),
+  timerSec: integer('timer_sec'),
+});
+
+export const recipeStepIngredients = sqliteTable('recipe_step_ingredients', {
+  id: text('id').primaryKey(),
+  stepId: text('step_id')
+    .notNull()
+    .references(() => recipeSteps.id, { onDelete: 'cascade' }),
+  canonicalIngredientId: text('canonical_ingredient_id')
+    .notNull()
+    .references(() => ingredients.id, { onDelete: 'cascade' }),
+  rawText: text('raw_text').notNull(),
+  amount: real('amount').notNull(),
+  unit: text('unit').notNull(),
+  preparationNote: text('preparation_note'),
 });
 
 export const users = sqliteTable('users', {
