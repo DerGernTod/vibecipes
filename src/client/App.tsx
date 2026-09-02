@@ -9,12 +9,6 @@ import { RecipeDetail } from './RecipeDetail.tsx';
 import { RecipeEditor } from './RecipeEditor.tsx';
 import { LanguageProvider, LanguageToggle, useLanguage } from './LanguageContext.tsx';
 
-// Prototype Imports
-import { PrototypeSwitcher, type PrototypeVariantKey } from './prototypes/PrototypeSwitcher.tsx';
-import { WallSearchS1_PillBar } from './prototypes/WallSearchS1_PillBar.tsx';
-import { WallSearchS2_Spotlight } from './prototypes/WallSearchS2_Spotlight.tsx';
-import { WallSearchS3_CategoryChips } from './prototypes/WallSearchS3_CategoryChips.tsx';
-
 const client = hc<AppType>('/');
 
 type ActiveTab = 'recipes' | 'ingredients';
@@ -24,13 +18,6 @@ function AppContent() {
   const { t } = useLanguage();
   const [health, setHealth] = useState<HealthCheckResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
-
-  // Prototype Variant State
-  const [prototypeVariant, setPrototypeVariant] = useState<PrototypeVariantKey>(() => {
-    const params = new URLSearchParams(window.location.search);
-    const v = params.get('variant')?.toUpperCase();
-    return v === 'S2' || v === 'S3' ? (v as PrototypeVariantKey) : 'S1';
-  });
 
   const [activeTab, setActiveTab] = useState<ActiveTab>('recipes');
   const [recipeViewMode, setRecipeViewMode] = useState<RecipeViewMode>('list');
@@ -50,13 +37,6 @@ function AppContent() {
     }
     loadData();
   }, []);
-
-  const handleSelectVariant = (key: PrototypeVariantKey) => {
-    setPrototypeVariant(key);
-    const url = new URL(window.location.href);
-    url.searchParams.set('variant', key);
-    window.history.replaceState({}, '', url.toString());
-  };
 
   const handleSelectRecipe = (id: string) => {
     setSelectedRecipeId(id);
@@ -79,17 +59,17 @@ function AppContent() {
   };
 
   return (
-    <div className="container" style={{ paddingBottom: '5rem' }}>
+    <div className="container" style={{ paddingBottom: '3rem' }}>
       <div className="header-top-bar">
-        <span className="badge">Vibecipes UI Prototype Suite</span>
+        <span className="badge">Vibecipes Web Platform</span>
         <LanguageToggle />
       </div>
 
-      <h1 style={{ margin: '0.5rem 0' }}>Vibecipes Design Exploration</h1>
+      <h1 style={{ margin: '0.5rem 0' }}>Vibecipes Platform</h1>
       <p style={{ color: 'var(--muted)', marginTop: 0 }}>
         {t(
-          "Switch between 3 radically different UI prototypes using the bottom floating switcher bar or ?variant=A|B|C.",
-          "Wechseln Sie zwischen 3 verschiedenen UI-Prototypen über die untere Switcher-Leiste oder ?variant=A|B|C."
+          "Manage recipes, automatic dietary trait inferencing, and canonical ingredient taxonomy.",
+          "Verwalten Sie Rezepte, automatische Ernährungsanalyse und kanonische Zutaten-Taxonomie."
         )}
       </p>
 
@@ -106,7 +86,7 @@ function AppContent() {
             setRecipeViewMode('list');
           }}
         >
-          📖 {t('Recipes UI Prototype', 'Rezepte UI-Prototyp')}
+          📖 {t('Recipes Wall & Trait Engine', 'Rezepte-Wand & Ernährungs-Engine')}
         </button>
         <button
           className={`nav-tab ${activeTab === 'ingredients' ? 'active' : ''}`}
@@ -119,11 +99,11 @@ function AppContent() {
       {activeTab === 'recipes' && (
         <div style={{ marginTop: '1rem' }}>
           {recipeViewMode === 'list' && (
-            <div>
-              {prototypeVariant === 'S1' && <WallSearchS1_PillBar />}
-              {prototypeVariant === 'S2' && <WallSearchS2_Spotlight />}
-              {prototypeVariant === 'S3' && <WallSearchS3_CategoryChips />}
-            </div>
+            <RecipeList
+              onSelectRecipe={handleSelectRecipe}
+              onEditRecipe={handleEditRecipe}
+              onCreateRecipe={handleCreateRecipe}
+            />
           )}
 
           {recipeViewMode === 'detail' && selectedRecipeId && (
@@ -156,9 +136,6 @@ function AppContent() {
           <IngredientSearch />
         </div>
       )}
-
-      {/* Floating Prototype Switcher Bar */}
-      <PrototypeSwitcher currentVariant={prototypeVariant} onSelectVariant={handleSelectVariant} />
     </div>
   );
 }

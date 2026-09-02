@@ -14,6 +14,21 @@ export function RecipeList({ onSelectRecipe, onEditRecipe, onCreateRecipe }: Rec
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
 
+  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [selectedTag, setSelectedTag] = useState<string>('All');
+  const [selectedTrait, setSelectedTrait] = useState<string>('All');
+
+  const tags = [
+    { id: 'All', label: t('All Recipes', 'Alle Rezepte') },
+    { id: 'Breakfast', label: '🥞 Breakfast' },
+    { id: 'Salads', label: '🥗 Salads' },
+    { id: 'Italian', label: '🍕 Italian' },
+    { id: 'Asian', label: '🍜 Asian' },
+    { id: 'Sweets', label: '🍰 Sweets' },
+  ];
+
+  const traits = ['All', 'VEGAN', 'VEGETARIAN', 'OMNIVORE'];
+
   const fetchRecipes = async () => {
     setLoading(true);
     try {
@@ -33,6 +48,18 @@ export function RecipeList({ onSelectRecipe, onEditRecipe, onCreateRecipe }: Rec
 
   useEffect(() => {
     fetchRecipes();
+  }, []);
+
+  // Shortcut key CTRL+K or / to focus search input
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault();
+        document.getElementById('spotlight-search-input')?.focus();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
   }, []);
 
   const handleDelete = async (e: React.MouseEvent, id: string, title: string) => {
@@ -65,7 +92,7 @@ export function RecipeList({ onSelectRecipe, onEditRecipe, onCreateRecipe }: Rec
         className={`trait-badge ${traitClass}`}
         style={{
           boxShadow: '0 4px 10px rgba(0,0,0,0.5)',
-          backdropFilter: 'blur(6px)',
+          backdropFilter: 'blur(8px)',
         }}
         title={isOverridden ? t('Manually overridden', 'Manuell überschrieben') : ''}
       >
@@ -74,14 +101,102 @@ export function RecipeList({ onSelectRecipe, onEditRecipe, onCreateRecipe }: Rec
     );
   };
 
+  // Filtered recipes
+  const filteredRecipes = recipes.filter((r) => {
+    if (selectedTrait !== 'All' && r.effectiveTrait !== selectedTrait) {
+      return false;
+    }
+    if (selectedTag !== 'All') {
+      const tagLow = selectedTag.toLowerCase();
+      const titleLow = r.title.toLowerCase();
+      const descLow = (r.description || '').toLowerCase();
+      if (tagLow === 'breakfast' && !titleLow.includes('pancake') && !titleLow.includes('toast') && !descLow.includes('morning')) return false;
+      if (tagLow === 'salads' && !titleLow.includes('salad')) return false;
+      if (tagLow === 'italian' && !titleLow.includes('pizza') && !titleLow.includes('risotto')) return false;
+      if (tagLow === 'asian' && !titleLow.includes('ramen')) return false;
+    }
+    if (searchQuery.trim().length > 0) {
+      const q = searchQuery.toLowerCase().trim();
+      const matchTitle = r.title.toLowerCase().includes(q);
+      const matchDesc = (r.description || '').toLowerCase().includes(q);
+      const matchIng = r.aggregatedIngredients?.some(
+        (i) => i.canonicalIngredientId.toLowerCase().includes(q) || (i.ingredient?.primaryNameEn || '').toLowerCase().includes(q)
+      );
+      return matchTitle || matchDesc || matchIng;
+    }
+    return true;
+  });
+
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
-        <div>
-          <h2 style={{ margin: 0, fontSize: '1.4rem' }}>{t('Pinterest Recipe Wall', 'Pinterest Rezept-Wand')}</h2>
-          <p style={{ margin: '0.2rem 0 0 0', color: 'var(--muted)', fontSize: '0.9rem' }}>
-            {t('Explore food inspirations and recipe blueprints', 'Entdecken Sie kulinarische Inspirationen und Rezepte')}
-          </p>
+      {/* Command Spotlight & Filter Control Panel */}
+      <div style={{ background: '#0d1322', border: '1px solid var(--card-border)', borderRadius: '20px', padding: '1.25rem 1.5rem', marginBottom: '1.75rem', boxShadow: '0 10px 30px rgba(0,0,0,0.5)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', background: '#161f36', border: '1px solid var(--primary)', borderRadius: '12px', padding: '0.75rem 1.25rem' }}>
+          <span style={{ fontSize: '1.2rem', color: '#818cf8' }}>⚡</span>
+          <input
+            id="spotlight-search-input"
+            type="text"
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            placeholder={t('Command Spotlight: Search titles, descriptions, or ingredients...', 'Command Spotlight: Nach Rezepten oder Zutaten suchen...')}
+            style={{ flex: 1, background: 'transparent', border: 'none', color: '#fff', fontSize: '1rem', outline: 'none' }}
+          />
+          {searchQuery ? (
+            <button onClick={() => setSearchQuery('')} style={{ background: 'transparent', border: 'none', color: 'var(--muted)', cursor: 'pointer', fontSize: '1.1rem' }}>
+              ✕
+            </button>
+          ) : (
+            <kbd style={{ background: '#1e293b', border: '1px solid #475569', color: 'var(--muted)', padding: '0.2rem 0.5rem', borderRadius: '6px', fontSize: '0.75rem', fontWeight: 'bold' }}>
+              CTRL + K
+            </kbd>
+          )}
+        </div>
+
+        {/* Category & Trait Filter Bar */}
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '0.75rem', marginTop: '1rem', paddingTop: '0.85rem', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+          <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
+            {tags.map((tag) => (
+              <button
+                key={tag.id}
+                onClick={() => setSelectedTag(tag.id)}
+                style={{
+                  background: selectedTag === tag.id ? 'var(--primary)' : '#1e293b',
+                  color: selectedTag === tag.id ? '#ffffff' : 'var(--muted)',
+                  border: 'none',
+                  borderRadius: '20px',
+                  padding: '0.35rem 0.85rem',
+                  fontSize: '0.82rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                  transition: 'background 0.15s ease',
+                }}
+              >
+                {tag.label}
+              </button>
+            ))}
+          </div>
+
+          <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap', alignItems: 'center' }}>
+            <span style={{ fontSize: '0.8rem', color: 'var(--muted)', fontWeight: 600, marginRight: '0.2rem' }}>Dietary:</span>
+            {traits.map((tr) => (
+              <button
+                key={tr}
+                onClick={() => setSelectedTrait(tr)}
+                style={{
+                  background: selectedTrait === tr ? (tr === 'VEGAN' ? '#10b981' : tr === 'VEGETARIAN' ? '#3b82f6' : tr === 'OMNIVORE' ? '#f59e0b' : 'var(--primary)') : '#1e293b',
+                  color: selectedTrait === tr ? '#ffffff' : 'var(--muted)',
+                  border: 'none',
+                  borderRadius: '20px',
+                  padding: '0.3rem 0.75rem',
+                  fontSize: '0.78rem',
+                  fontWeight: 600,
+                  cursor: 'pointer',
+                }}
+              >
+                {tr}
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
@@ -89,34 +204,30 @@ export function RecipeList({ onSelectRecipe, onEditRecipe, onCreateRecipe }: Rec
       {error && <div style={{ color: '#ef4444' }}>{error}</div>}
 
       {!loading && !error && (
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(260px, 1fr))',
-            gap: '1.25rem',
-            alignItems: 'start',
-          }}
-        >
-          {/* First Wall Entry: Large + Add New Recipe Card */}
+        <div style={{ columnCount: 3, columnGap: '1.25rem' }}>
+          {/* First Wall Entry: Full-Sized + Create Recipe Card */}
           <div
             onClick={onCreateRecipe}
             style={{
-              background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.15) 0%, rgba(139, 92, 246, 0.08) 100%)',
+              breakInside: 'avoid',
+              marginBottom: '1.25rem',
+              background: 'linear-gradient(135deg, rgba(99, 102, 241, 0.25) 0%, rgba(139, 92, 246, 0.12) 100%)',
               border: '2px dashed var(--primary)',
-              borderRadius: '16px',
-              minHeight: '320px',
+              borderRadius: '20px',
+              minHeight: '340px', // FULL SIZE MATCHING REGULAR RECIPE CARDS
               display: 'flex',
               flexDirection: 'column',
-              justifyContent: 'center',
               alignItems: 'center',
+              justifyContent: 'center',
               cursor: 'pointer',
-              transition: 'transform 0.2s ease, background 0.2s ease, box-shadow 0.2s ease',
-              padding: '1.5rem',
               textAlign: 'center',
+              padding: '2rem',
+              boxSizing: 'border-box',
+              transition: 'transform 0.2s ease, box-shadow 0.2s ease, background 0.2s ease',
             }}
             onMouseEnter={(e) => {
               e.currentTarget.style.transform = 'translateY(-4px)';
-              e.currentTarget.style.boxShadow = '0 12px 30px rgba(99, 102, 241, 0.25)';
+              e.currentTarget.style.boxShadow = '0 15px 35px rgba(99, 102, 241, 0.35)';
             }}
             onMouseLeave={(e) => {
               e.currentTarget.style.transform = 'translateY(0)';
@@ -125,32 +236,34 @@ export function RecipeList({ onSelectRecipe, onEditRecipe, onCreateRecipe }: Rec
           >
             <div
               style={{
-                width: '64px',
-                height: '64px',
+                width: '80px',
+                height: '80px',
                 borderRadius: '50%',
                 background: 'var(--primary)',
                 color: '#fff',
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                fontSize: '2.5rem',
+                fontSize: '3.2rem',
                 fontWeight: 300,
-                marginBottom: '1rem',
-                boxShadow: '0 8px 20px rgba(99, 102, 241, 0.4)',
+                marginBottom: '1.25rem',
+                boxShadow: '0 8px 25px rgba(99, 102, 241, 0.5)',
               }}
             >
               +
             </div>
-            <h3 style={{ margin: '0 0 0.4rem 0', color: 'var(--text)', fontSize: '1.15rem' }}>
-              {t('Add New Recipe', 'Neues Rezept erstellen')}
+            <h3 style={{ margin: '0 0 0.4rem 0', fontSize: '1.3rem', color: '#fff', fontWeight: 600 }}>
+              {t('Create New Recipe', 'Neues Rezept erstellen')}
             </h3>
-            <p style={{ margin: 0, color: 'var(--muted)', fontSize: '0.85rem', lineHeight: '1.4' }}>
-              {t('Create a new culinary blueprint with ingredients and steps', 'Erstellen Sie ein neues Rezept mit Zutaten und Schritten')}
+            <p style={{ margin: 0, color: '#a5b4fc', fontSize: '0.88rem', lineHeight: '1.4', maxWidth: '200px' }}>
+              {t('Author a fresh culinary blueprint with step ingredients', 'Erstellen Sie ein neues Rezept mit Zutaten und Schritten')}
             </p>
           </div>
 
           {/* Recipe Photo Cards */}
-          {recipes.map((recipe) => {
+          {filteredRecipes.map((recipe, idx) => {
+            const heights = ['240px', '300px', '220px', '280px', '340px'];
+            const imgHeight = heights[idx % heights.length];
             const fallbackImg = 'https://images.unsplash.com/photo-1495521821757-a1efb6729352?auto=format&fit=crop&w=800&q=80';
             const bgImage = recipe.imageUrl || fallbackImg;
 
@@ -159,20 +272,20 @@ export function RecipeList({ onSelectRecipe, onEditRecipe, onCreateRecipe }: Rec
                 key={recipe.id}
                 onClick={() => onSelectRecipe(recipe.id)}
                 style={{
+                  breakInside: 'avoid',
+                  marginBottom: '1.25rem',
                   background: '#090d16',
                   border: '1px solid var(--card-border)',
-                  borderRadius: '16px',
+                  borderRadius: '20px',
                   overflow: 'hidden',
                   cursor: 'pointer',
                   transition: 'transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease',
                   position: 'relative',
-                  display: 'flex',
-                  flexDirection: 'column',
                 }}
                 onMouseEnter={(e) => {
                   e.currentTarget.style.transform = 'translateY(-4px)';
                   e.currentTarget.style.borderColor = 'var(--primary)';
-                  e.currentTarget.style.boxShadow = '0 12px 30px rgba(0, 0, 0, 0.5)';
+                  e.currentTarget.style.boxShadow = '0 15px 35px rgba(0, 0, 0, 0.6)';
                 }}
                 onMouseLeave={(e) => {
                   e.currentTarget.style.transform = 'translateY(0)';
@@ -180,8 +293,7 @@ export function RecipeList({ onSelectRecipe, onEditRecipe, onCreateRecipe }: Rec
                   e.currentTarget.style.boxShadow = 'none';
                 }}
               >
-                {/* Photo Image Box */}
-                <div style={{ position: 'relative', width: '100%', height: '200px', overflow: 'hidden' }}>
+                <div style={{ position: 'relative', width: '100%', height: imgHeight, overflow: 'hidden' }}>
                   <img
                     src={bgImage}
                     alt={recipe.title}
@@ -198,20 +310,13 @@ export function RecipeList({ onSelectRecipe, onEditRecipe, onCreateRecipe }: Rec
                       e.currentTarget.style.transform = 'scale(1.0)';
                     }}
                   />
-                  <div
-                    style={{
-                      position: 'absolute',
-                      top: '0.75rem',
-                      right: '0.75rem',
-                    }}
-                  >
+                  <div style={{ position: 'absolute', top: '0.75rem', right: '0.75rem' }}>
                     {renderTraitBadge(recipe)}
                   </div>
                 </div>
 
-                {/* Card Content Body */}
-                <div style={{ padding: '1.1rem', display: 'flex', flexDirection: 'column', gap: '0.5rem', flex: 1 }}>
-                  <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 600, color: 'var(--text)', lineHeight: '1.3' }}>
+                <div style={{ padding: '1.25rem' }}>
+                  <h3 style={{ margin: '0 0 0.4rem 0', fontSize: '1.1rem', fontWeight: 600, lineHeight: '1.3' }}>
                     {recipe.title}
                   </h3>
 
@@ -221,12 +326,12 @@ export function RecipeList({ onSelectRecipe, onEditRecipe, onCreateRecipe }: Rec
                     </p>
                   )}
 
-                  <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.8rem', color: 'var(--muted)', marginTop: 'auto', paddingTop: '0.5rem' }}>
+                  <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.8rem', color: 'var(--muted)', marginTop: '0.85rem' }}>
                     <span>🍽️ {recipe.servings} {t('servings', 'Portionen')}</span>
                     <span>📝 {recipe.steps.length} {t('steps', 'Schritte')}</span>
                   </div>
 
-                  <div style={{ display: 'flex', gap: '0.4rem', marginTop: '0.5rem', paddingTop: '0.5rem', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+                  <div style={{ display: 'flex', gap: '0.4rem', marginTop: '0.75rem', paddingTop: '0.5rem', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
                     <button
                       className="btn-secondary"
                       style={{ padding: '0.3rem 0.6rem', fontSize: '0.78rem' }}
