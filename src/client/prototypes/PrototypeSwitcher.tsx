@@ -1,6 +1,6 @@
 import React, { useEffect } from 'react';
 
-export type PrototypeVariantKey = 'A1' | 'A2' | 'A3';
+export type PrototypeVariantKey = 'W1' | 'W2' | 'W3';
 
 export interface VariantInfo {
   key: PrototypeVariantKey;
@@ -10,19 +10,19 @@ export interface VariantInfo {
 
 export const VARIANTS: VariantInfo[] = [
   {
-    key: 'A1',
-    name: 'Clean Card Flow',
-    description: 'Single-column focused card layout with smart ingredient unit filtering.',
+    key: 'W1',
+    name: 'Pinterest Masonry Cards',
+    description: 'Dynamic staggered masonry grid with gradient overlays and floating trait pills.',
   },
   {
-    key: 'A2',
-    name: 'Studio Tabs',
-    description: 'Tabbed workspace (Overview / Steps / Ingredients) eliminating visual clutter.',
+    key: 'W2',
+    name: 'Bento Box Gallery',
+    description: 'Modern asymmetric bento grid with a 2x2 featured hero card and sharp geometric tiles.',
   },
   {
-    key: 'A3',
-    name: 'Zen Studio Minimalist',
-    description: 'Refined low-density split view with direct live document preview.',
+    key: 'W3',
+    name: 'Editorial Magazine Wall',
+    description: 'Trending horizontal carousel header + compact 4-column photo wall with cook times.',
   },
 ];
 
@@ -112,7 +112,7 @@ export function PrototypeSwitcher({ currentVariant, onSelectVariant }: Prototype
             fontSize: '0.75rem',
           }}
         >
-          VARIANT {activeVariant.key}
+          WALL {activeVariant.key}
         </span>
         <span style={{ fontWeight: 600, fontSize: '0.88rem' }}>{activeVariant.name}</span>
         <span style={{ color: '#94a3b8', fontSize: '0.78rem', display: 'inline-block', maxWidth: '280px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>

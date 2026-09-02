@@ -11,9 +11,9 @@ import { LanguageProvider, LanguageToggle, useLanguage } from './LanguageContext
 
 // Prototype Imports
 import { PrototypeSwitcher, type PrototypeVariantKey } from './prototypes/PrototypeSwitcher.tsx';
-import { VariantA1_CleanCard } from './prototypes/VariantA1_CleanCard.tsx';
-import { VariantA2_StudioTabs } from './prototypes/VariantA2_StudioTabs.tsx';
-import { VariantA3_ZenStudio } from './prototypes/VariantA3_ZenStudio.tsx';
+import { WallVariantW1_Masonry } from './prototypes/WallVariantW1_Masonry.tsx';
+import { WallVariantW2_Bento } from './prototypes/WallVariantW2_Bento.tsx';
+import { WallVariantW3_Editorial } from './prototypes/WallVariantW3_Editorial.tsx';
 
 const client = hc<AppType>('/');
 
@@ -29,7 +29,7 @@ function AppContent() {
   const [prototypeVariant, setPrototypeVariant] = useState<PrototypeVariantKey>(() => {
     const params = new URLSearchParams(window.location.search);
     const v = params.get('variant')?.toUpperCase();
-    return v === 'A2' || v === 'A3' ? (v as PrototypeVariantKey) : 'A1';
+    return v === 'W2' || v === 'W3' ? (v as PrototypeVariantKey) : 'W1';
   });
 
   const [activeTab, setActiveTab] = useState<ActiveTab>('recipes');
@@ -119,11 +119,11 @@ function AppContent() {
       {activeTab === 'recipes' && (
         <div style={{ marginTop: '1rem' }}>
           {recipeViewMode === 'list' && (
-            <RecipeList
-              onSelectRecipe={handleSelectRecipe}
-              onEditRecipe={handleEditRecipe}
-              onCreateRecipe={handleCreateRecipe}
-            />
+            <div>
+              {prototypeVariant === 'W1' && <WallVariantW1_Masonry />}
+              {prototypeVariant === 'W2' && <WallVariantW2_Bento />}
+              {prototypeVariant === 'W3' && <WallVariantW3_Editorial />}
+            </div>
           )}
 
           {recipeViewMode === 'detail' && selectedRecipeId && (
@@ -156,6 +156,9 @@ function AppContent() {
           <IngredientSearch />
         </div>
       )}
+
+      {/* Floating Prototype Switcher Bar */}
+      <PrototypeSwitcher currentVariant={prototypeVariant} onSelectVariant={handleSelectVariant} />
     </div>
   );
 }
