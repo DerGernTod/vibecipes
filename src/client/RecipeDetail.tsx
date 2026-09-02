@@ -70,16 +70,24 @@ export function RecipeDetail({ recipeId, onBack, onEdit }: RecipeDetailProps) {
         </button>
       </div>
 
-      <div className="card">
-        <div className="recipe-detail-header">
-          <div>
-            <h1 style={{ margin: '0 0 0.5rem 0' }}>{recipe.title}</h1>
-            <p style={{ color: 'var(--muted)', margin: 0 }}>
-              🍽️ {t('Base Servings:', 'Basisportionen:')} <strong>{recipe.servings}</strong>
-            </p>
+      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
+        {recipe.imageUrl && (
+          <div style={{ width: '100%', height: '260px', overflow: 'hidden', position: 'relative' }}>
+            <img src={recipe.imageUrl} alt={recipe.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+            <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '80px', background: 'linear-gradient(to top, var(--card), transparent)' }} />
           </div>
-          {renderTraitBadge()}
-        </div>
+        )}
+
+        <div style={{ padding: '1.5rem' }}>
+          <div className="recipe-detail-header">
+            <div>
+              <h1 style={{ margin: '0 0 0.5rem 0' }}>{recipe.title}</h1>
+              <p style={{ color: 'var(--muted)', margin: 0 }}>
+                🍽️ {t('Base Servings:', 'Basisportionen:')} <strong>{recipe.servings}</strong>
+              </p>
+            </div>
+            {renderTraitBadge()}
+          </div>
 
         {recipe.description && (
           <p style={{ fontSize: '1rem', color: '#cbd5e1', lineHeight: '1.5' }}>
@@ -143,6 +151,7 @@ export function RecipeDetail({ recipeId, onBack, onEdit }: RecipeDetailProps) {
             </div>
           ))
         )}
+        </div>
       </div>
     </div>
   );

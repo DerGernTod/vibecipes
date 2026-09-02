@@ -17,6 +17,7 @@ export const recipes = sqliteTable('recipes', {
   description: text('description'),
   servings: integer('servings').notNull().default(4),
   overrideTrait: text('override_trait'),
+  imageUrl: text('image_url'),
   createdAt: text('created_at').notNull(),
   updatedAt: text('updated_at'),
 });

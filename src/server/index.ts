@@ -7,6 +7,7 @@ import type { HealthCheckResponse, IngredientDto } from '../shared/types.ts';
 import { authRoutes } from './auth.ts';
 import { recipeRoutes } from './recipes.ts';
 import { seedIngredients } from './db/seed.ts';
+import { seedDemoRecipes } from './db/seedRecipes.ts';
 
 export const app = new Hono();
 
@@ -159,6 +160,7 @@ export async function initDb() {
         description TEXT,
         servings INTEGER NOT NULL DEFAULT 4,
         override_trait TEXT,
+        image_url TEXT,
         created_at TEXT NOT NULL,
         updated_at TEXT
       );
@@ -168,6 +170,9 @@ export async function initDb() {
     } catch {}
     try {
       await client.execute(`ALTER TABLE recipes ADD COLUMN updated_at TEXT;`);
+    } catch {}
+    try {
+      await client.execute(`ALTER TABLE recipes ADD COLUMN image_url TEXT;`);
     } catch {}
 
     await client.execute(`
@@ -194,6 +199,8 @@ export async function initDb() {
 
     // Execute 2-pass idempotent ingredient seed
     await seedIngredients(db);
+    // Seed demo recipes with high-res food images
+    await seedDemoRecipes(db);
   } catch (err) {
     console.error('Error auto-initializing database:', err);
   }

@@ -160,6 +160,7 @@ export async function buildRecipeDto(recipeId: string): Promise<RecipeDto | null
     overrideTrait,
     calculatedTrait,
     effectiveTrait,
+    imageUrl: recipeRow.imageUrl ?? null,
     steps: stepsDto,
     aggregatedIngredients: Array.from(aggMap.values()),
     createdAt: recipeRow.createdAt,
@@ -206,6 +207,7 @@ export const recipeRoutes = new Hono()
       description: body.description?.trim() || null,
       servings: body.servings && body.servings > 0 ? body.servings : 4,
       overrideTrait: body.overrideTrait || null,
+      imageUrl: body.imageUrl || null,
       createdAt: now,
       updatedAt: now,
     });
@@ -261,6 +263,7 @@ export const recipeRoutes = new Hono()
         description: body.description !== undefined ? (body.description ? body.description.trim() : null) : existing.description,
         servings: body.servings !== undefined ? body.servings : existing.servings,
         overrideTrait: body.overrideTrait !== undefined ? body.overrideTrait : existing.overrideTrait,
+        imageUrl: body.imageUrl !== undefined ? body.imageUrl : existing.imageUrl,
         updatedAt: now,
       })
       .where(eq(recipes.id, id));

@@ -9,6 +9,12 @@ import { RecipeDetail } from './RecipeDetail.tsx';
 import { RecipeEditor } from './RecipeEditor.tsx';
 import { LanguageProvider, LanguageToggle, useLanguage } from './LanguageContext.tsx';
 
+// Prototype Imports
+import { PrototypeSwitcher, type PrototypeVariantKey } from './prototypes/PrototypeSwitcher.tsx';
+import { VariantA1_CleanCard } from './prototypes/VariantA1_CleanCard.tsx';
+import { VariantA2_StudioTabs } from './prototypes/VariantA2_StudioTabs.tsx';
+import { VariantA3_ZenStudio } from './prototypes/VariantA3_ZenStudio.tsx';
+
 const client = hc<AppType>('/');
 
 type ActiveTab = 'recipes' | 'ingredients';
@@ -18,6 +24,13 @@ function AppContent() {
   const { t } = useLanguage();
   const [health, setHealth] = useState<HealthCheckResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
+
+  // Prototype Variant State
+  const [prototypeVariant, setPrototypeVariant] = useState<PrototypeVariantKey>(() => {
+    const params = new URLSearchParams(window.location.search);
+    const v = params.get('variant')?.toUpperCase();
+    return v === 'A2' || v === 'A3' ? (v as PrototypeVariantKey) : 'A1';
+  });
 
   const [activeTab, setActiveTab] = useState<ActiveTab>('recipes');
   const [recipeViewMode, setRecipeViewMode] = useState<RecipeViewMode>('list');
@@ -37,6 +50,13 @@ function AppContent() {
     }
     loadData();
   }, []);
+
+  const handleSelectVariant = (key: PrototypeVariantKey) => {
+    setPrototypeVariant(key);
+    const url = new URL(window.location.href);
+    url.searchParams.set('variant', key);
+    window.history.replaceState({}, '', url.toString());
+  };
 
   const handleSelectRecipe = (id: string) => {
     setSelectedRecipeId(id);
@@ -59,17 +79,17 @@ function AppContent() {
   };
 
   return (
-    <div className="container">
+    <div className="container" style={{ paddingBottom: '5rem' }}>
       <div className="header-top-bar">
-        <span className="badge">Vibecipes Web Platform</span>
+        <span className="badge">Vibecipes UI Prototype Suite</span>
         <LanguageToggle />
       </div>
 
-      <h1 style={{ margin: '0.5rem 0' }}>Vibecipes Platform</h1>
+      <h1 style={{ margin: '0.5rem 0' }}>Vibecipes Design Exploration</h1>
       <p style={{ color: 'var(--muted)', marginTop: 0 }}>
         {t(
-          "Manage recipes, automatic dietary trait inferencing, and canonical ingredient taxonomy.",
-          "Verwalten Sie Rezepte, automatische Ernährungsanalyse und kanonische Zutaten-Taxonomie."
+          "Switch between 3 radically different UI prototypes using the bottom floating switcher bar or ?variant=A|B|C.",
+          "Wechseln Sie zwischen 3 verschiedenen UI-Prototypen über die untere Switcher-Leiste oder ?variant=A|B|C."
         )}
       </p>
 
@@ -86,7 +106,7 @@ function AppContent() {
             setRecipeViewMode('list');
           }}
         >
-          📖 {t('Recipes & Trait Engine', 'Rezepte & Ernährungs-Engine')}
+          📖 {t('Recipes UI Prototype', 'Rezepte UI-Prototyp')}
         </button>
         <button
           className={`nav-tab ${activeTab === 'ingredients' ? 'active' : ''}`}
@@ -147,4 +167,5 @@ export function App() {
     </LanguageProvider>
   );
 }
+
 

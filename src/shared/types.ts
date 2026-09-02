@@ -81,6 +81,7 @@ export interface RecipeDto {
   overrideTrait: DietaryTrait | null;
   calculatedTrait: DietaryTrait;
   effectiveTrait: DietaryTrait;
+  imageUrl?: string | null;
   steps: RecipeStepDto[];
   aggregatedIngredients?: AggregatedIngredientDto[];
   createdAt: string;
@@ -106,6 +107,7 @@ export interface CreateRecipeRequest {
   description?: string;
   servings?: number;
   overrideTrait?: DietaryTrait | null;
+  imageUrl?: string | null;
   steps: CreateRecipeStepInput[];
 }
 
@@ -114,6 +116,7 @@ export interface UpdateRecipeRequest {
   description?: string;
   servings?: number;
   overrideTrait?: DietaryTrait | null;
+  imageUrl?: string | null;
   steps?: CreateRecipeStepInput[];
 }
 
