@@ -78,7 +78,7 @@ function AppContent() {
       </nav>
 
       {activeTab === 'ingredients' ? (
-         <div style={{ maxWidth: '900px', margin: '8rem auto', background: '#0f172a', padding: '2rem', borderRadius: '12px', border: '1px solid #1e293b' }}>
+         <div style={{ maxWidth: '900px', margin: '8rem auto', padding: '2rem' }}>
            <IngredientSearch />
          </div>
       ) : recipeViewMode !== 'list' ? (
