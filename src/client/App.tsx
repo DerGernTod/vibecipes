@@ -1,7 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { hc } from 'hono/client';
 import type { AppType } from '../server/index.ts';
-import type { HealthCheckResponse } from '../shared/types.ts';
 import { AuthBar } from './AuthBar.tsx';
 import { IngredientSearch } from './IngredientSearch.tsx';
 import { RecipeList } from './RecipeList.tsx';
@@ -9,34 +8,28 @@ import { RecipeDetail } from './RecipeDetail.tsx';
 import { RecipeEditor } from './RecipeEditor.tsx';
 import { LanguageProvider, LanguageToggle, useLanguage } from './LanguageContext.tsx';
 
-const client = hc<AppType>('/');
-
 type ActiveTab = 'recipes' | 'ingredients';
 type RecipeViewMode = 'list' | 'detail' | 'create' | 'edit';
 
+function AuthModal({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) {
+  if (!isOpen) return null;
+  return (
+    <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(5px)' }}>
+      <div style={{ background: '#0f172a', padding: '2rem', borderRadius: '16px', maxWidth: '500px', width: '90%', position: 'relative', border: '1px solid #334155' }}>
+        <button onClick={onClose} style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'transparent', border: 'none', color: '#fff', fontSize: '1.5rem', cursor: 'pointer' }}>×</button>
+        <h2 style={{ marginTop: 0, marginBottom: '1.5rem' }}>Account & Settings</h2>
+        <AuthBar />
+      </div>
+    </div>
+  );
+}
+
 function AppContent() {
   const { t } = useLanguage();
-  const [health, setHealth] = useState<HealthCheckResponse | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
+  const [isAuthOpen, setIsAuthOpen] = useState(false);
   const [activeTab, setActiveTab] = useState<ActiveTab>('recipes');
   const [recipeViewMode, setRecipeViewMode] = useState<RecipeViewMode>('list');
   const [selectedRecipeId, setSelectedRecipeId] = useState<string | null>(null);
-
-  useEffect(() => {
-    async function loadData() {
-      try {
-        const resHealth = await client.api.health.$get();
-        if (resHealth.ok) {
-          const data = await resHealth.json();
-          setHealth(data);
-        }
-      } catch (err) {
-        setError(String(err));
-      }
-    }
-    loadData();
-  }, []);
 
   const handleSelectRecipe = (id: string) => {
     setSelectedRecipeId(id);
@@ -59,82 +52,42 @@ function AppContent() {
   };
 
   return (
-    <div className="container" style={{ paddingBottom: '3rem' }}>
-      <div className="header-top-bar">
-        <span className="badge">Vibecipes Web Platform</span>
-        <LanguageToggle />
-      </div>
-
-      <h1 style={{ margin: '0.5rem 0' }}>Vibecipes Platform</h1>
-      <p style={{ color: 'var(--muted)', marginTop: 0 }}>
-        {t(
-          "Manage recipes, automatic dietary trait inferencing, and canonical ingredient taxonomy.",
-          "Verwalten Sie Rezepte, automatische Ernährungsanalyse und kanonische Zutaten-Taxonomie."
-        )}
-      </p>
-
-      <AuthBar />
-
-      {error && <div className="card" style={{ borderColor: '#ef4444', color: '#ef4444' }}>Error: {error}</div>}
-
-      {/* Main Navigation Tabs */}
-      <div className="nav-tabs">
-        <button
-          className={`nav-tab ${activeTab === 'recipes' ? 'active' : ''}`}
-          onClick={() => {
-            setActiveTab('recipes');
-            setRecipeViewMode('list');
-          }}
-        >
-          📖 {t('Recipes Wall & Trait Engine', 'Rezepte-Wand & Ernährungs-Engine')}
-        </button>
-        <button
-          className={`nav-tab ${activeTab === 'ingredients' ? 'active' : ''}`}
-          onClick={() => setActiveTab('ingredients')}
-        >
-          🥦 {t('Canonical Ingredients Taxonomy', 'Kanonischer Zutatenkatalog')}
-        </button>
-      </div>
-
-      {activeTab === 'recipes' && (
-        <div style={{ marginTop: '1rem' }}>
-          {recipeViewMode === 'list' && (
-            <RecipeList
-              onSelectRecipe={handleSelectRecipe}
-              onEditRecipe={handleEditRecipe}
-              onCreateRecipe={handleCreateRecipe}
-            />
-          )}
-
-          {recipeViewMode === 'detail' && selectedRecipeId && (
-            <RecipeDetail
-              recipeId={selectedRecipeId}
-              onBack={() => setRecipeViewMode('list')}
-              onEdit={(id) => handleEditRecipe(id)}
-            />
-          )}
-
-          {(recipeViewMode === 'create' || recipeViewMode === 'edit') && (
-            <RecipeEditor
-              recipeId={selectedRecipeId}
-              onSaveSuccess={handleSaveSuccess}
-              onCancel={() => setRecipeViewMode('list')}
-            />
-          )}
+    <div style={{ minHeight: '100vh', background: '#020617', color: '#f8fafc', overflowX: 'hidden' }}>
+      <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />
+      
+      <nav style={{ position: 'fixed', top: 0, width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1.5rem 4rem', zIndex: 100, background: 'linear-gradient(to bottom, rgba(0,0,0,0.9), transparent)' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '3rem' }}>
+          <h1 style={{ margin: 0, color: '#e50914', fontSize: '1.8rem', letterSpacing: '-1px', textShadow: '0 2px 4px rgba(0,0,0,0.8)' }}>VIBECIPES</h1>
+          <div style={{ display: 'flex', gap: '1.5rem', fontWeight: 500, fontSize: '0.9rem' }}>
+            <span style={{ cursor: 'pointer', transition: '0.2s', color: activeTab === 'recipes' ? '#fff' : '#94a3b8' }} onClick={() => { setActiveTab('recipes'); setRecipeViewMode('list'); }}>Home</span>
+            <span style={{ cursor: 'pointer', transition: '0.2s', color: activeTab === 'ingredients' ? '#fff' : '#94a3b8' }} onClick={() => setActiveTab('ingredients')}>Taxonomy</span>
+          </div>
         </div>
-      )}
 
-      {activeTab === 'ingredients' && (
-        <div className="card">
-          <h2>{t("Canonical Ingredient Taxonomy & Search", "Kanonische Zutaten-Taxonomie & Suche")}</h2>
-          <p style={{ color: 'var(--muted)', fontSize: '0.9rem', marginBottom: '1rem' }}>
-            {t(
-              "Explore the global catalog with EN/DE alias matching, volumetric densities (g/ml), dietary traits, and smart substitution parent groups.",
-              "Durchsuchen Sie den globalen Katalog mit EN/DE Alias-Matching, Volumendichte (g/ml), Ernährungseigenschaften und intelligenten Ersetzungsgruppen."
-            )}
-          </p>
-          <IngredientSearch />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
+          <button style={{ background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer', fontWeight: 600 }} onClick={handleCreateRecipe}>+ New</button>
+          <LanguageToggle />
+          <div 
+            onClick={() => setIsAuthOpen(true)}
+            style={{ width: '35px', height: '35px', borderRadius: '4px', background: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontWeight: 'bold' }}
+            title="Profile & Settings"
+          >
+            ME
+          </div>
         </div>
+      </nav>
+
+      {activeTab === 'ingredients' ? (
+         <div style={{ maxWidth: '900px', margin: '8rem auto', background: '#0f172a', padding: '2rem', borderRadius: '12px', border: '1px solid #1e293b' }}>
+           <IngredientSearch />
+         </div>
+      ) : recipeViewMode !== 'list' ? (
+         <div style={{ maxWidth: '900px', margin: '8rem auto', background: '#0f172a', padding: '2rem', borderRadius: '12px', border: '1px solid #1e293b' }}>
+           {recipeViewMode === 'detail' && selectedRecipeId && <RecipeDetail recipeId={selectedRecipeId} onBack={() => setRecipeViewMode('list')} onEdit={(id) => handleEditRecipe(id)} />}
+           {(recipeViewMode === 'create' || recipeViewMode === 'edit') && <RecipeEditor recipeId={selectedRecipeId} onSaveSuccess={handleSaveSuccess} onCancel={() => setRecipeViewMode('list')} />}
+         </div>
+      ) : (
+         <RecipeList onSelectRecipe={handleSelectRecipe} onEditRecipe={handleEditRecipe} onCreateRecipe={handleCreateRecipe} />
       )}
     </div>
   );
@@ -147,5 +100,3 @@ export function App() {
     </LanguageProvider>
   );
 }
-
-
