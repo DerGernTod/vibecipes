@@ -55,22 +55,22 @@ function AppContent() {
     <div style={{ minHeight: '100vh', background: '#020617', color: '#f8fafc', overflowX: 'hidden' }}>
       <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />
       
-      <nav style={{ position: 'fixed', top: 0, width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1.5rem 4rem', zIndex: 100, background: 'linear-gradient(to bottom, rgba(0,0,0,0.9), transparent)' }}>
+      <nav style={{ boxSizing: 'border-box', position: 'fixed', top: 0, width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1.5rem 4rem', zIndex: 100, background: 'linear-gradient(to bottom, rgba(0,0,0,0.9), transparent)' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '3rem' }}>
           <h1 style={{ margin: 0, color: '#e50914', fontSize: '1.8rem', letterSpacing: '-1px', textShadow: '0 2px 4px rgba(0,0,0,0.8)' }}>VIBECIPES</h1>
           <div style={{ display: 'flex', gap: '1.5rem', fontWeight: 500, fontSize: '0.9rem' }}>
-            <span style={{ cursor: 'pointer', transition: '0.2s', color: activeTab === 'recipes' ? '#fff' : '#94a3b8' }} onClick={() => { setActiveTab('recipes'); setRecipeViewMode('list'); }}>Home</span>
-            <span style={{ cursor: 'pointer', transition: '0.2s', color: activeTab === 'ingredients' ? '#fff' : '#94a3b8' }} onClick={() => setActiveTab('ingredients')}>Taxonomy</span>
+            <span style={{ cursor: 'pointer', transition: '0.2s', color: activeTab === 'recipes' ? '#fff' : '#94a3b8' }} onClick={() => { setActiveTab('recipes'); setRecipeViewMode('list'); }}>{t('Home', 'Startseite')}</span>
+            <span style={{ cursor: 'pointer', transition: '0.2s', color: activeTab === 'ingredients' ? '#fff' : '#94a3b8' }} onClick={() => setActiveTab('ingredients')}>{t('Taxonomy', 'Taxonomie')}</span>
           </div>
         </div>
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-          <button style={{ background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer', fontWeight: 600 }} onClick={handleCreateRecipe}>+ New</button>
+          <button style={{ background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer', fontWeight: 600 }} onClick={handleCreateRecipe}>+ {t('New', 'Neu')}</button>
           <LanguageToggle />
           <div 
             onClick={() => setIsAuthOpen(true)}
             style={{ width: '35px', height: '35px', borderRadius: '4px', background: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontWeight: 'bold' }}
-            title="Profile & Settings"
+            title={t('Profile & Settings', 'Profil & Einstellungen')}
           >
             ME
           </div>
