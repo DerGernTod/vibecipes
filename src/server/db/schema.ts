@@ -8,6 +8,7 @@ export const ingredients = sqliteTable('ingredients', {
   densityGPerMl: real('density_g_per_ml'),
   defaultTrait: text('default_trait').notNull(), // 'VEGAN' | 'VEGETARIAN' | 'OMNIVORE'
   parentGroupId: text('parent_group_id'),
+  imageUrl: text('image_url'),
 });
 
 export const recipes = sqliteTable('recipes', {

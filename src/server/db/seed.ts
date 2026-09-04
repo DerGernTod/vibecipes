@@ -10,6 +10,7 @@ export interface RawCanonicalIngredient {
   densityGPerMl: number | null;
   defaultTrait: DietaryTrait;
   parentGroupId?: string;
+  imageUrl?: string;
 }
 
 export const CANONICAL_INGREDIENTS: RawCanonicalIngredient[] = [
@@ -683,6 +684,7 @@ export async function seedIngredients(dbInstance: any) {
     densityGPerMl: item.densityGPerMl,
     defaultTrait: item.defaultTrait,
     parentGroupId: null,
+    imageUrl: item.imageUrl || `https://picsum.photos/seed/${item.id}/400/300`,
   }));
 
   // Bulk Pass 1: Upsert all ingredients without parentGroupId
@@ -697,6 +699,7 @@ export async function seedIngredients(dbInstance: any) {
         aliasesJson: sql`excluded.aliases_json`,
         densityGPerMl: sql`excluded.density_g_per_ml`,
         defaultTrait: sql`excluded.default_trait`,
+        imageUrl: sql`excluded.image_url`,
       },
     });
 

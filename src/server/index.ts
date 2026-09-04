@@ -36,6 +36,7 @@ const routes = app
       densityGPerMl: item.densityGPerMl,
       defaultTrait: item.defaultTrait as any,
       parentGroupId: item.parentGroupId ?? null,
+      imageUrl: item.imageUrl ?? null,
     }));
 
     if (query && query.trim().length > 0) {
@@ -120,6 +121,11 @@ export async function initDb() {
     `);
     try {
       await client.execute(`ALTER TABLE ingredients ADD COLUMN parent_group_id TEXT;`);
+    } catch {
+      // Column already exists
+    }
+    try {
+      await client.execute(`ALTER TABLE ingredients ADD COLUMN image_url TEXT;`);
     } catch {
       // Column already exists
     }
