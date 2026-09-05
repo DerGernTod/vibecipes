@@ -5,12 +5,15 @@ import { ingredients } from './db/schema.ts';
 import { count } from 'drizzle-orm';
 import type { HealthCheckResponse, IngredientDto } from '../shared/types.ts';
 import { authRoutes } from './auth.ts';
+import { recipeRoutes } from './recipes.ts';
 import { seedIngredients } from './db/seed.ts';
+import { seedDemoRecipes } from './db/seedRecipes.ts';
 
 export const app = new Hono();
 
 const routes = app
   .route('/api/auth', authRoutes)
+  .route('/api/recipes', recipeRoutes)
   .get('/api/health', async (c) => {
     const [{ value }] = await db.select({ value: count() }).from(ingredients);
     const res: HealthCheckResponse = {
@@ -33,6 +36,7 @@ const routes = app
       densityGPerMl: item.densityGPerMl,
       defaultTrait: item.defaultTrait as any,
       parentGroupId: item.parentGroupId ?? null,
+      imageUrl: item.imageUrl ?? null,
     }));
 
     if (query && query.trim().length > 0) {
@@ -120,6 +124,11 @@ export async function initDb() {
     } catch {
       // Column already exists
     }
+    try {
+      await client.execute(`ALTER TABLE ingredients ADD COLUMN image_url TEXT;`);
+    } catch {
+      // Column already exists
+    }
 
     await client.execute(`
       CREATE TABLE IF NOT EXISTS users (
@@ -149,8 +158,55 @@ export async function initDb() {
       );
     `);
 
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS recipes (
+        id TEXT PRIMARY KEY,
+        owner_id TEXT REFERENCES users(id) ON DELETE CASCADE,
+        title TEXT NOT NULL,
+        description TEXT,
+        servings INTEGER NOT NULL DEFAULT 4,
+        override_trait TEXT,
+        image_url TEXT,
+        created_at TEXT NOT NULL,
+        updated_at TEXT
+      );
+    `);
+    try {
+      await client.execute(`ALTER TABLE recipes ADD COLUMN owner_id TEXT REFERENCES users(id) ON DELETE CASCADE;`);
+    } catch {}
+    try {
+      await client.execute(`ALTER TABLE recipes ADD COLUMN updated_at TEXT;`);
+    } catch {}
+    try {
+      await client.execute(`ALTER TABLE recipes ADD COLUMN image_url TEXT;`);
+    } catch {}
+
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS recipe_steps (
+        id TEXT PRIMARY KEY,
+        recipe_id TEXT NOT NULL REFERENCES recipes(id) ON DELETE CASCADE,
+        step_index INTEGER NOT NULL,
+        instruction TEXT NOT NULL,
+        timer_sec INTEGER
+      );
+    `);
+
+    await client.execute(`
+      CREATE TABLE IF NOT EXISTS recipe_step_ingredients (
+        id TEXT PRIMARY KEY,
+        step_id TEXT NOT NULL REFERENCES recipe_steps(id) ON DELETE CASCADE,
+        canonical_ingredient_id TEXT NOT NULL REFERENCES ingredients(id) ON DELETE CASCADE,
+        raw_text TEXT NOT NULL,
+        amount REAL NOT NULL,
+        unit TEXT NOT NULL,
+        preparation_note TEXT
+      );
+    `);
+
     // Execute 2-pass idempotent ingredient seed
     await seedIngredients(db);
+    // Seed demo recipes with high-res food images
+    await seedDemoRecipes(db);
   } catch (err) {
     console.error('Error auto-initializing database:', err);
   }

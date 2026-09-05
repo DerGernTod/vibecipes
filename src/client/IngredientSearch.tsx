@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { hc } from 'hono/client';
 import type { AppType } from '../server/index.ts';
-import type { IngredientDto, DietaryTrait } from '../shared/types.ts';
+import type { IngredientDto } from '../shared/types.ts';
 import { useLanguage } from './LanguageContext.tsx';
 
 const client = hc<AppType>('/');
@@ -10,170 +10,129 @@ interface IngredientSearchProps {
   onSelect?: (ingredient: IngredientDto) => void;
 }
 
-const TRAIT_BADGE_CLASSES: Record<string, string> = {
-  VEGAN: 'trait-badge trait-vegan',
-  VEGETARIAN: 'trait-badge trait-vegetarian',
-  OMNIVORE: 'trait-badge trait-omnivore',
+const TRAIT_COLORS: Record<string, string> = {
+  VEGAN: '#10b981',
+  VEGETARIAN: '#3b82f6',
+  OMNIVORE: '#f59e0b',
+  UNVERIFIED: '#94a3b8'
 };
 
 export function IngredientSearch({ onSelect }: IngredientSearchProps) {
   const { lang, t } = useLanguage();
-  const [query, setQuery] = useState('');
+  const [search, setSearch] = useState('');
   const [ingredients, setIngredients] = useState<IngredientDto[]>([]);
-  const [catalogMap, setCatalogMap] = useState<Record<string, IngredientDto>>({});
-  const [selectedIngredient, setSelectedIngredient] = useState<IngredientDto | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // Load full catalog once on mount to build complete parent lookup map
-  useEffect(() => {
-    async function loadCatalog() {
-      try {
-        const res = await client.api.ingredients.$get();
-        if (res.ok) {
-          const data = await res.json();
-          const map: Record<string, IngredientDto> = {};
-          data.forEach((item) => {
-            map[item.id] = item;
-          });
-          setCatalogMap(map);
-        }
-      } catch (err) {
-        console.error('Error fetching full catalog map:', err);
-      }
-    }
-    loadCatalog();
-  }, []);
-
-  // Search when query changes
+  // Fetch full taxonomy up front (we can filter locally since it's a small dataset)
   useEffect(() => {
     let active = true;
-    async function fetchIngredients() {
+    async function loadCatalog() {
       setLoading(true);
       try {
-        const res = await client.api.ingredients.$get({
-          query: query.trim() ? { q: query.trim() } : {},
-        });
+        const res = await client.api.ingredients.$get();
         if (res.ok && active) {
           const data = await res.json();
           setIngredients(data);
         }
       } catch (err) {
-        console.error('Error searching ingredients:', err);
+        console.error('Error fetching catalog:', err);
       } finally {
         if (active) setLoading(false);
       }
     }
+    loadCatalog();
+    return () => { active = false; };
+  }, []);
 
-    const timeout = setTimeout(fetchIngredients, 150);
-    return () => {
-      active = false;
-      clearTimeout(timeout);
-    };
-  }, [query]);
+  const filtered = ingredients.filter(ing => {
+    if (!search.trim()) return true;
+    const q = search.toLowerCase();
+    return (
+      ing.primaryNameEn.toLowerCase().includes(q) ||
+      ing.primaryNameDe.toLowerCase().includes(q) ||
+      ing.aliases.some(a => a.toLowerCase().includes(q))
+    );
+  });
 
-  const handleSelect = (ing: IngredientDto) => {
-    setSelectedIngredient(ing);
-    if (onSelect) {
-      onSelect(ing);
-    }
-  };
-
-  const getPrimaryName = (ing: IngredientDto) => {
-    return lang === 'de' ? ing.primaryNameDe : ing.primaryNameEn;
-  };
+  if (loading) return <div style={{ padding: '4rem', color: '#fff' }}>{t('Loading Taxonomy...', 'Lade Taxonomie...')}</div>;
 
   return (
-    <div className="ingredient-search-wrapper">
-      <div className="search-box-container">
-        <div className="search-input-field">
-          <svg className="search-icon" viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" strokeWidth="2">
-            <circle cx="11" cy="11" r="8"></circle>
-            <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
-          </svg>
-          <input
-            type="text"
-            className="search-input"
-            placeholder={t(
-              "Search catalog by name or alias (e.g. Oat, Hafer, Butter, Panko)...",
-              "Katalog nach Name oder Alias durchsuchen (z.B. Hafer, Butter, Panko)..."
-            )}
-            value={query}
-            onChange={(e) => setQuery(e.target.value)}
+    <div style={{ minHeight: '600px', paddingBottom: '3rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem' }}>
+        <h2 style={{ color: '#fff', fontSize: '1.5rem', margin: 0 }}>
+          {t('Taxonomy Library', 'Taxonomie Bibliothek')}
+        </h2>
+        <div style={{ position: 'relative', width: '300px' }}>
+          <input 
+            type="text" 
+            placeholder={t('Search ingredients...', 'Zutaten durchsuchen...')}
+            value={search}
+            onChange={e => setSearch(e.target.value)}
+            style={{ width: '100%', padding: '0.75rem 1rem 0.75rem 2.5rem', borderRadius: '100px', border: '1px solid #3f3f46', background: '#18181b', color: '#fff', outline: 'none', boxSizing: 'border-box' }}
           />
-          {query && (
-            <button className="search-clear-btn" onClick={() => setQuery('')} title={t("Clear search", "Suche zurücksetzen")}>
-              ✕
-            </button>
-          )}
-        </div>
-        <div className="search-count-label">
-          {loading ? t("Searching...", "Suche läuft...") : `${ingredients.length} ${t("catalog items", "Einträge")}`}
+          <span style={{ position: 'absolute', left: '1rem', top: '50%', transform: 'translateY(-50%)', color: '#94a3b8' }}>🔍</span>
         </div>
       </div>
-
-      {selectedIngredient && (
-        <div className="selected-ingredient-banner">
-          <div className="selected-info">
-            <strong>{t("Selected Ingredient:", "Ausgewählte Zutat:")}</strong> {getPrimaryName(selectedIngredient)}
-            <span className={TRAIT_BADGE_CLASSES[selectedIngredient.defaultTrait] || 'trait-badge'} style={{ marginLeft: '0.5rem' }}>
-              {selectedIngredient.defaultTrait}
-            </span>
-          </div>
-          <button className="btn-secondary-sm" onClick={() => setSelectedIngredient(null)}>
-            {t("Clear Selection", "Auswahl aufheben")}
-          </button>
-        </div>
-      )}
-
-      <div className="ingredient-grid">
-        {ingredients.length === 0 && !loading ? (
-          <div className="no-results">
-            {t(
-              `No matching canonical ingredients found for "${query}". Try searching for "Milk", "Hafer", "Sugar", or "Butter".`,
-              `Keine passenden kanonischen Zutaten für "${query}" gefunden. Versuchen Sie es mit "Milch", "Hafer", "Zucker" oder "Butter".`
-            )}
-          </div>
-        ) : (
-          ingredients.map((ing) => {
-            const parent = ing.parentGroupId ? catalogMap[ing.parentGroupId] : null;
-            const isSelected = selectedIngredient?.id === ing.id;
-            const primaryName = getPrimaryName(ing);
-            const parentName = parent ? getPrimaryName(parent) : ing.parentGroupId;
-
-            return (
-              <div
-                key={ing.id}
-                className={`ingredient-card-item ${isSelected ? 'selected' : ''}`}
-                onClick={() => handleSelect(ing)}
-              >
-                <div className="card-top">
-                  <div className="ingredient-title-area">
-                    <h3 className="ingredient-title">{primaryName}</h3>
-                  </div>
-                  <span className={TRAIT_BADGE_CLASSES[ing.defaultTrait] || 'trait-badge'}>{ing.defaultTrait}</span>
-                </div>
-
-                <div className="card-details">
-                  {ing.densityGPerMl !== null && (
-                    <div className="detail-chip">
-                      <span className="chip-label">{t("Density:", "Dichte:")}</span> {ing.densityGPerMl} g/ml
-                    </div>
-                  )}
-                  {ing.parentGroupId && (
-                    <div className="detail-chip parent-chip">
-                      <span className="chip-label">{t("Parent Group:", "Übergeordnet:")}</span> {parentName}
-                    </div>
-                  )}
-                </div>
-
-                <div className="aliases-footer">
-                  <span className="aliases-title">{t("Aliases:", "Aliase:")}</span> {ing.aliases.join(', ')}
+      
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(200px, 1fr))', gap: '1.25rem' }}>
+        {filtered.map(ing => {
+          const color = TRAIT_COLORS[ing.defaultTrait] || '#94a3b8';
+          const name = lang === 'de' ? ing.primaryNameDe : ing.primaryNameEn;
+          // Use the real imageUrl or a fallback gradient
+          const imgUrl = ing.imageUrl;
+          
+          return (
+            <div 
+              key={ing.id} 
+              onClick={() => onSelect && onSelect(ing)}
+              style={{ 
+                background: '#18181b', 
+                borderRadius: '12px', 
+                border: '1px solid #27272a', 
+                overflow: 'hidden', 
+                borderTop: `4px solid ${color}`, 
+                boxShadow: '0 8px 20px rgba(0,0,0,0.3)', 
+                position: 'relative', 
+                display: 'flex', 
+                flexDirection: 'column',
+                cursor: onSelect ? 'pointer' : 'default',
+                transition: '0.2s',
+              }}
+              onMouseEnter={e => {
+                 if (onSelect) {
+                   e.currentTarget.style.transform = 'translateY(-4px)';
+                   e.currentTarget.style.borderColor = '#e50914';
+                 }
+              }}
+              onMouseLeave={e => {
+                 if (onSelect) {
+                   e.currentTarget.style.transform = 'translateY(0)';
+                   e.currentTarget.style.borderColor = '#27272a';
+                 }
+              }}
+            >
+              <div style={{ position: 'absolute', top: '0.5rem', right: '0.5rem', background: color, color: '#fff', padding: '0.15rem 0.5rem', borderRadius: '4px', fontSize: '0.65rem', fontWeight: 'bold', zIndex: 10 }}>
+                {ing.defaultTrait}
+              </div>
+              
+              {imgUrl ? (
+                <img src={imgUrl} alt={name} style={{ width: '100%', height: '140px', objectFit: 'cover' }} />
+              ) : (
+                <div style={{ width: '100%', height: '140px', background: 'linear-gradient(45deg, #1f2937, #374151)' }} />
+              )}
+              
+              <div style={{ padding: '1rem', flex: 1, display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <h3 style={{ fontSize: '1.1rem', margin: '0', color: '#fff' }}>{name}</h3>
+                <div style={{ color: '#a1a1aa', fontSize: '0.75rem', marginTop: 'auto' }}>
+                   ID: {ing.id.split('_')[1]}
+                   {ing.parentGroupId && <div style={{ color: '#fca5a5', marginTop: '0.2rem' }}>Parent: {ing.parentGroupId}</div>}
                 </div>
               </div>
-            );
-          })
-        )}
+            </div>
+          );
+        })}
       </div>
+      {filtered.length === 0 && <div style={{ color: '#94a3b8', textAlign: 'center', marginTop: '4rem' }}>{t('No ingredients found.', 'Keine Zutaten gefunden.')}</div>}
     </div>
   );
 }
