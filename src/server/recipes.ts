@@ -4,6 +4,8 @@ import { db } from './db/index.ts';
 import { recipes, recipeSteps, recipeStepIngredients, ingredients, users, sessions } from './db/schema.ts';
 import { getSignedCookie } from 'hono/cookie';
 import { calculateRecipeDietaryTrait } from '../domain/dietary.ts';
+import { extractRecipeJsonLd, normalizeIngredient } from '../domain/import.ts';
+import { fuzzyMatch } from './index.ts';
 import type {
   RecipeDto,
   RecipeStepDto,
@@ -169,6 +171,103 @@ export async function buildRecipeDto(recipeId: string): Promise<RecipeDto | null
 }
 
 export const recipeRoutes = new Hono()
+  .post('/import-url', async (c) => {
+    const { url } = await c.req.json<{ url: string }>();
+    if (!url) return c.json({ error: 'URL is required' }, 400);
+
+    try {
+      const response = await fetch(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.5',
+        }
+      });
+      
+      if (!response.ok) {
+        return c.json({ error: `Failed to fetch URL: ${response.statusText}` }, 400);
+      }
+
+      const html = await response.text();
+      const ldJson = extractRecipeJsonLd(html);
+
+      if (!ldJson) {
+        return c.json({ error: 'No Schema.org Recipe data found on the page' }, 404);
+      }
+
+      const title = ldJson.name || 'Imported Recipe';
+      let description = ldJson.description || '';
+      if (Array.isArray(description)) description = description.join('\n');
+
+      let servings = 4;
+      if (ldJson.recipeYield) {
+        const yieldStr = Array.isArray(ldJson.recipeYield) ? ldJson.recipeYield[0] : ldJson.recipeYield;
+        const match = yieldStr.toString().match(/\d+/);
+        if (match) servings = parseInt(match[0], 10);
+      }
+      
+      let imageUrl = null;
+      if (ldJson.image) {
+         if (typeof ldJson.image === 'string') imageUrl = ldJson.image;
+         else if (Array.isArray(ldJson.image) && typeof ldJson.image[0] === 'string') imageUrl = ldJson.image[0];
+         else if (ldJson.image.url) imageUrl = ldJson.image.url;
+      }
+
+      const stepIngredients: RecipeStepIngredientDto[] = [];
+      const rawIngredients = Array.isArray(ldJson.recipeIngredient) ? ldJson.recipeIngredient : (ldJson.recipeIngredient ? [ldJson.recipeIngredient] : []);
+      
+      const allIngredients = await db.select().from(ingredients);
+
+      for (const rawIng of rawIngredients) {
+        if (typeof rawIng !== 'string') continue;
+        const norm = normalizeIngredient(rawIng);
+        
+        let matchedId = allIngredients[0]?.id || 'unknown';
+        for (const dbIng of allIngredients) {
+          const dbNameEn = dbIng.primaryNameEn.toLowerCase();
+          const dbNameDe = dbIng.primaryNameDe.toLowerCase();
+          const q = norm.name.toLowerCase();
+          
+          if (q.includes(dbNameEn) || dbNameEn.includes(q) || q.includes(dbNameDe) || dbNameDe.includes(q)) {
+            matchedId = dbIng.id;
+            break;
+          } else {
+             const aliases = JSON.parse(dbIng.aliasesJson);
+             let found = false;
+             for (const alias of aliases) {
+                if (q.includes(alias.toLowerCase()) || alias.toLowerCase().includes(q)) {
+                   matchedId = dbIng.id;
+                   found = true;
+                   break;
+                }
+             }
+             if (found) break;
+          }
+        }
+
+        stepIngredients.push({
+          id: crypto.randomUUID(),
+          stepId: 'temp',
+          canonicalIngredientId: matchedId,
+          rawText: norm.rawText,
+          amount: norm.amount,
+          unit: norm.unit,
+          preparationNote: null,
+          ingredient: undefined
+        });
+      }
+
+      return c.json({
+        title,
+        description,
+        servings,
+        imageUrl,
+        ingredients: stepIngredients
+      });
+    } catch (err: any) {
+      return c.json({ error: 'Failed to process URL: ' + err.message }, 500);
+    }
+  })
   .get('/', async (c) => {
     const allRecipes = await db.select().from(recipes);
     const result: RecipeDto[] = [];

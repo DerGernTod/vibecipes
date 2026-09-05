@@ -9,6 +9,7 @@ import type {
 } from '../shared/types.ts';
 import { calculateRecipeDietaryTrait } from '../domain/dietary.ts';
 import { useLanguage } from './LanguageContext.tsx';
+import { UrlImportModal } from './UrlImportModal.tsx';
 
 interface RecipeEditorProps {
   recipeId?: string | null;
@@ -30,6 +31,26 @@ export function RecipeEditor({ recipeId, onSaveSuccess, onCancel }: RecipeEditor
   const [loading, setLoading] = useState<boolean>(false);
   const [saving, setSaving] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [showImportModal, setShowImportModal] = useState(false);
+
+  const handleImport = (data: any) => {
+    setTitle(data.title);
+    if (data.description) setDescription(data.description);
+    if (data.servings) setServings(data.servings);
+    
+    if (data.ingredients && data.ingredients.length > 0) {
+      setSteps([{
+        instruction: '',
+        timerSec: null,
+        ingredients: data.ingredients.map((ing: any) => ({
+          canonicalIngredientId: ing.canonicalIngredientId,
+          amount: ing.amount,
+          unit: ing.unit,
+          preparationNote: ing.preparationNote || ''
+        }))
+      }]);
+    }
+  };
 
   // Fetch full ingredients catalog for step ingredient picker
   useEffect(() => {
@@ -237,7 +258,20 @@ export function RecipeEditor({ recipeId, onSaveSuccess, onCancel }: RecipeEditor
 
   return (
     <div className="card">
-      <h2>{recipeId ? t('Edit Recipe', 'Rezept bearbeiten') : t('Create New Recipe', 'Neues Rezept erstellen')}</h2>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+        <h2 style={{ margin: 0 }}>{recipeId ? t('Edit Recipe', 'Rezept bearbeiten') : t('Create New Recipe', 'Neues Rezept erstellen')}</h2>
+        {!recipeId && (
+          <button type="button" className="btn-secondary" onClick={() => setShowImportModal(true)}>
+            🔗 {t('Import from URL', 'Von URL importieren')}
+          </button>
+        )}
+      </div>
+
+      <UrlImportModal 
+        isOpen={showImportModal} 
+        onClose={() => setShowImportModal(false)} 
+        onImport={handleImport} 
+      />
 
       {error && <div style={{ color: '#ef4444', marginBottom: '1rem' }}>{error}</div>}
 

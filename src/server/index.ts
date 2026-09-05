@@ -52,7 +52,7 @@ const routes = app
     return c.json(mapped);
   });
 
-function levenshteinDistance(a: string, b: string): number {
+export function levenshteinDistance(a: string, b: string): number {
   if (a.length === 0) return b.length;
   if (b.length === 0) return a.length;
   const matrix: number[][] = [];
@@ -75,7 +75,7 @@ function levenshteinDistance(a: string, b: string): number {
   return matrix[b.length][a.length];
 }
 
-function fuzzyMatch(query: string, target: string): boolean {
+export function fuzzyMatch(query: string, target: string): boolean {
   const q = query.toLowerCase().trim();
   const t = target.toLowerCase().trim();
   if (t.includes(q)) return true;
