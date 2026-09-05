@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import type { RecipeDto } from '../shared/types.ts';
 import { useLanguage } from './LanguageContext.tsx';
+import { scaleQuantity, convertToSystem, formatIngredientAmount } from '../domain/units.ts';
 
 interface RecipeDetailProps {
   recipeId: string;
@@ -13,6 +14,8 @@ export function RecipeDetail({ recipeId, onBack, onEdit }: RecipeDetailProps) {
   const [recipe, setRecipe] = useState<RecipeDto | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [targetServings, setTargetServings] = useState<number>(1);
+  const [system, setSystem] = useState<'metric' | 'imperial'>('metric');
 
   useEffect(() => {
     async function loadRecipe() {
@@ -22,6 +25,7 @@ export function RecipeDetail({ recipeId, onBack, onEdit }: RecipeDetailProps) {
         if (res.ok) {
           const data: RecipeDto = await res.json();
           setRecipe(data);
+          setTargetServings(data.servings);
         } else {
           setError(t('Recipe not found', 'Rezept nicht gefunden'));
         }
@@ -82,12 +86,39 @@ export function RecipeDetail({ recipeId, onBack, onEdit }: RecipeDetailProps) {
           <div className="recipe-detail-header">
             <div>
               <h1 style={{ margin: '0 0 0.5rem 0' }}>{recipe.title}</h1>
-              <p style={{ color: 'var(--muted)', margin: 0 }}>
-                🍽️ {t('Base Servings:', 'Basisportionen:')} <strong>{recipe.servings}</strong>
-              </p>
+              <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <span style={{ color: 'var(--muted)' }}>🍽️ {t('Servings:', 'Portionen:')}</span>
+                  <button className="btn-secondary" style={{ padding: '0.2rem 0.6rem' }} onClick={() => setTargetServings(s => Math.max(1, s - 1))}>-</button>
+                  <strong>{targetServings}</strong>
+                  <button className="btn-secondary" style={{ padding: '0.2rem 0.6rem' }} onClick={() => setTargetServings(s => s + 1)}>+</button>
+                </div>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginLeft: 'auto' }}>
+                  <div className="lang-toggle-group">
+                    <button 
+                      className={`lang-btn ${system === 'metric' ? 'active' : ''}`}
+                      onClick={() => setSystem('metric')}
+                    >
+                      {t('Metric (g, ml)', 'Metrisch (g, ml)')}
+                    </button>
+                    <button 
+                      className={`lang-btn ${system === 'imperial' ? 'active' : ''}`}
+                      onClick={() => setSystem('imperial')}
+                    >
+                      {t('Imperial (tsp, oz)', 'Imperial (TL, oz)')}
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
             {renderTraitBadge()}
           </div>
+
+          {(targetServings / recipe.servings > 2 || targetServings / recipe.servings < 0.25) && (
+            <div style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid #ef4444', padding: '0.75rem', borderRadius: '4px', margin: '0 0 1rem 0' }}>
+              ⚠️ {t('Scaling above 2x or below 0.25x may require recipe adjustments.', 'Skalierung über 2x oder unter 0.25x erfordert möglicherweise Rezeptanpassungen.')}
+            </div>
+          )}
 
         {recipe.description && (
           <p style={{ fontSize: '1rem', color: '#cbd5e1', lineHeight: '1.5' }}>
@@ -107,7 +138,13 @@ export function RecipeDetail({ recipeId, onBack, onEdit }: RecipeDetailProps) {
                 const notesStr = item.preparationNotes.length > 0 ? ` (${item.preparationNotes.join(', ')})` : '';
                 return (
                   <li key={idx}>
-                    <strong>{item.totalAmount} {item.unit}</strong> {name}{notesStr}
+                    {(() => {
+                      const scaled = scaleQuantity(item.totalAmount, targetServings / recipe.servings);
+                      const density = item.ingredient?.densityGPerMl || null;
+                      const converted = convertToSystem(scaled, item.unit, density, system);
+                      const formatted = formatIngredientAmount(converted.amount, converted.unit, lang, system);
+                      return <strong>{formatted}</strong>;
+                    })()} {name}{notesStr}
                   </li>
                 );
               })}
@@ -142,7 +179,13 @@ export function RecipeDetail({ recipeId, onBack, onEdit }: RecipeDetailProps) {
                     const ingName = lang === 'de' && ing.ingredient ? ing.ingredient.primaryNameDe : (ing.ingredient?.primaryNameEn || ing.canonicalIngredientId);
                     return (
                       <span key={iIdx} className="detail-chip parent-chip">
-                        {ing.amount} {ing.unit} {ingName} {ing.preparationNote ? `(${ing.preparationNote})` : ''}
+                        {(() => {
+                          const scaled = scaleQuantity(ing.amount, targetServings / recipe.servings);
+                          const density = ing.ingredient?.densityGPerMl || null;
+                          const converted = convertToSystem(scaled, ing.unit, density, system);
+                          const formatted = formatIngredientAmount(converted.amount, converted.unit, lang, system);
+                          return <strong>{formatted}</strong>;
+                        })()} {ingName} {ing.preparationNote ? `(${ing.preparationNote})` : ''}
                       </span>
                     );
                   })}
