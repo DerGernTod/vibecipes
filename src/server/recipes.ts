@@ -35,6 +35,13 @@ async function getOptionalUserId(c: Context): Promise<string | null> {
   }
 }
 
+// Whole-word containment, so "salt" matches "Table Salt" but not "Unsalted Butter".
+function containsWord(text: string, word: string): boolean {
+  if (!word) return false;
+  const escaped = word.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`(^|[^\\p{L}\\p{N}])${escaped}($|[^\\p{L}\\p{N}])`, 'u').test(text);
+}
+
 export async function buildRecipeDto(recipeId: string): Promise<RecipeDto | null> {
   const recipeRow = await db.query.recipes.findFirst({
     where: eq(recipes.id, recipeId),
@@ -231,14 +238,14 @@ export const recipeRoutes = new Hono()
           const dbNameDe = dbIng.primaryNameDe.toLowerCase();
           const q = norm.name.toLowerCase();
           
-          if (q.includes(dbNameEn) || dbNameEn.includes(q) || q.includes(dbNameDe) || dbNameDe.includes(q)) {
+          if (containsWord(q, dbNameEn) || containsWord(dbNameEn, q) || containsWord(q, dbNameDe) || containsWord(dbNameDe, q)) {
             matchedId = dbIng.id;
             break;
           } else {
              const aliases = JSON.parse(dbIng.aliasesJson);
              let found = false;
              for (const alias of aliases) {
-                if (q.includes(alias.toLowerCase()) || alias.toLowerCase().includes(q)) {
+                if (containsWord(q, alias.toLowerCase()) || containsWord(alias.toLowerCase(), q)) {
                    matchedId = dbIng.id;
                    found = true;
                    break;
