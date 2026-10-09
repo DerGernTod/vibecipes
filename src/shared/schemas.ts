@@ -227,5 +227,24 @@ export const importReportResponseSchema = z.object({
   id: z.string(),
 });
 
+// Persisted in localStorage so an active Cook Mode session survives reloads.
+// Timers hold an epoch `endTime`, so remaining time stays correct while the tab is backgrounded.
+export const cookTimerSchema = z.object({
+  id: z.string(),
+  stepIndex: z.number().int().nonnegative(),
+  endTime: z.number(),
+  alerted: z.boolean(),
+});
+export type CookTimer = z.infer<typeof cookTimerSchema>;
+
+export const cookSessionSchema = z.object({
+  recipeId: z.string(),
+  servings: z.number().positive(),
+  system: z.enum(['metric', 'imperial']),
+  stepIndex: z.number().int().nonnegative(),
+  timers: z.array(cookTimerSchema),
+});
+export type CookSession = z.infer<typeof cookSessionSchema>;
+
 export const ingredientListSchema = z.array(ingredientDtoSchema);
 export const recipeListSchema = z.array(recipeDtoSchema);
