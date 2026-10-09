@@ -2,18 +2,21 @@ import React, { useEffect, useState } from 'react';
 import { recipeDtoSchema, type RecipeDto } from '../shared/schemas.ts';
 import { readJson } from './http.ts';
 import { useLanguage } from './LanguageContext.tsx';
-import { scaleQuantity, convertToSystem, formatIngredientAmount } from '../domain/units.ts';
+import { formatScaledAmount } from '../domain/units.ts';
 import { Button, Chip, TraitChip } from './ui/index.ts';
 
 interface RecipeDetailProps {
   recipeId: string;
+  /** Recipe with an active Cook Mode session, if any. Its button then resumes instead of starting. */
+  cookingRecipeId: string | null;
   onBack: () => void;
   onEdit: (id: string) => void;
+  onStartCooking: (servings: number, system: UnitSystem) => void;
 }
 
 type UnitSystem = 'metric' | 'imperial';
 
-export function RecipeDetail({ recipeId, onBack, onEdit }: RecipeDetailProps) {
+export function RecipeDetail({ recipeId, cookingRecipeId, onBack, onEdit, onStartCooking }: RecipeDetailProps) {
   const { t, lang } = useLanguage();
   const [recipe, setRecipe] = useState<RecipeDto | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -50,11 +53,8 @@ export function RecipeDetail({ recipeId, onBack, onEdit }: RecipeDetailProps) {
   const scalingWarning = factor > 2 || factor < 0.25;
 
   /** Scale, convert and format one ingredient amount for the current servings and unit system. */
-  const formatAmount = (amount: number, unit: string, densityGPerMl: number | null | undefined) => {
-    const scaled = scaleQuantity(amount, factor);
-    const converted = convertToSystem(scaled, unit, densityGPerMl || null, system);
-    return formatIngredientAmount(converted.amount, converted.unit, lang, system);
-  };
+  const formatAmount = (amount: number, unit: string, densityGPerMl: number | null | undefined) =>
+    formatScaledAmount(amount, unit, densityGPerMl, factor, system, lang);
 
   return (
     <div className="detail">
@@ -69,7 +69,10 @@ export function RecipeDetail({ recipeId, onBack, onEdit }: RecipeDetailProps) {
           <Button variant="secondary" size="sm" onClick={onBack}>
             ← {t('Back to List', 'Zurück zur Übersicht')}
           </Button>
-          <Button variant="primary" size="sm" onClick={() => onEdit(recipe.id)}>
+          <Button variant="primary" size="sm" onClick={() => onStartCooking(targetServings, system)}>
+            {cookingRecipeId === recipe.id ? t('Resume Cook Mode', 'Kochmodus fortsetzen') : t('Start Cook Mode', 'Kochmodus starten')}
+          </Button>
+          <Button variant="secondary" size="sm" onClick={() => onEdit(recipe.id)}>
             {t('Edit Recipe', 'Rezept bearbeiten')}
           </Button>
         </div>

@@ -144,3 +144,17 @@ export function formatIngredientAmount(amount: number, unit: string, lang: strin
   const translatedUnit = translateUnit(unit, lang);
   return `${formattedAmount} ${translatedUnit}`.trim();
 }
+
+/** Scales, converts and formats one ingredient amount for a servings factor and unit system. */
+export function formatScaledAmount(
+  amount: number,
+  unit: string,
+  densityGPerMl: number | null | undefined,
+  scaleFactor: number,
+  system: 'metric' | 'imperial',
+  lang: string,
+): string {
+  const scaled = scaleQuantity(amount, scaleFactor);
+  const converted = convertToSystem(scaled, unit, densityGPerMl || null, system);
+  return formatIngredientAmount(converted.amount, converted.unit, lang, system);
+}

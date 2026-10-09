@@ -1,0 +1,227 @@
+/* Full-screen Cook Mode. Covers the app shell and keeps large touch targets for use with messy hands. */
+
+.cook {
+  position: fixed;
+  inset: 0;
+  z-index: 200;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  color: var(--text);
+  overflow-y: auto;
+}
+
+/* Whole-screen pulse while any timer has finished and is still waiting to be dismissed. */
+.cook--alert {
+  animation: cook-screen-pulse 1.2s ease-in-out infinite;
+}
+
+@keyframes cook-screen-pulse {
+  0%, 100% { box-shadow: inset 0 0 0 0 transparent; }
+  50% { box-shadow: inset 0 0 0 0.6rem var(--accent); }
+}
+
+.cook-header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem 1rem;
+  padding: 0.9rem var(--gutter);
+  border-bottom: 1px solid var(--line-soft);
+  background: var(--surface);
+}
+
+.cook-header__title {
+  display: flex;
+  flex-direction: column;
+  flex: 1 1 14rem;
+  min-width: 0;
+}
+
+.cook-header__recipe {
+  font-family: var(--font-display);
+  font-size: var(--fs-lg);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.cook-header__step {
+  color: var(--muted);
+  font-size: var(--fs-sm);
+}
+
+.cook-header__controls {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.cook-wake {
+  font-size: var(--fs-xs);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 0.3rem 0.7rem;
+  border-radius: var(--radius-pill);
+  border: 1px solid var(--line);
+  color: var(--muted);
+}
+
+.cook-wake--active {
+  color: var(--vegan);
+  border-color: var(--vegan);
+}
+
+.cook-wake--paused {
+  color: var(--vegetarian);
+  border-color: var(--vegetarian);
+}
+
+.cook-wake--unsupported {
+  color: var(--faint);
+}
+
+.cook-progress {
+  height: 4px;
+  background: var(--surface-inset);
+}
+
+.cook-progress__bar {
+  height: 100%;
+  background: var(--accent);
+  transition: width var(--dur) var(--ease);
+}
+
+.cook-timers {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  padding: 0.7rem var(--gutter);
+  background: var(--surface-glass);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid var(--line-soft);
+}
+
+.cook-timer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem 0.75rem;
+  padding: 0.45rem 0.6rem 0.45rem 0.9rem;
+  border-radius: var(--radius-md);
+  background: var(--surface-inset);
+  border: 1px solid var(--line);
+}
+
+.cook-timer__label {
+  color: var(--muted);
+  font-size: var(--fs-sm);
+}
+
+/* Fixed width so the buttons beside a ticking countdown do not shift every second. */
+.cook-timer__time {
+  font-family: var(--font-display);
+  font-size: var(--fs-lg);
+  font-variant-numeric: tabular-nums;
+  min-width: 4.5ch;
+  text-align: center;
+}
+
+.cook-timer--done {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  animation: cook-timer-pulse 1s ease-in-out infinite;
+}
+
+.cook-timer--done .cook-timer__time {
+  color: var(--accent);
+}
+
+@keyframes cook-timer-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.65; }
+}
+
+.cook-stage {
+  flex: 1;
+  width: 100%;
+  max-width: 52rem;
+  margin: 0 auto;
+  padding: clamp(1.5rem, 4vw, 3rem) var(--gutter);
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.cook-step__number {
+  margin: 0;
+  color: var(--accent);
+  font-size: var(--fs-sm);
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+}
+
+.cook-step__text {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: clamp(1.7rem, 4.2vw, 2.6rem);
+  line-height: 1.35;
+}
+
+.cook-ingredients {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+}
+
+.cook-ingredients__chip {
+  text-transform: none;
+  letter-spacing: 0;
+  font-size: var(--fs-md);
+  padding: 0.45rem 0.9rem;
+}
+
+.cook-stage__timer {
+  align-self: flex-start;
+  min-height: 3.5rem;
+}
+
+.cook-all {
+  margin-top: auto;
+  padding-top: 1rem;
+  border-top: 1px solid var(--line-soft);
+}
+
+.cook-all summary {
+  cursor: pointer;
+  min-height: 2.75rem;
+  display: flex;
+  align-items: center;
+  color: var(--text-soft);
+}
+
+.cook-nav {
+  position: sticky;
+  bottom: 0;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.75rem;
+  padding: 0.75rem var(--gutter);
+  background: var(--surface);
+  border-top: 1px solid var(--line-soft);
+}
+
+.cook-nav .btn {
+  min-height: 3.5rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cook--alert,
+  .cook-timer--done {
+    animation: none;
+  }
+}
