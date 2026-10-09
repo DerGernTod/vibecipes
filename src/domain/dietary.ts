@@ -1,4 +1,4 @@
-import type { DietaryTrait } from '../shared/types.ts';
+import type { DietaryTrait } from '../shared/schemas.ts';
 
 export function calculateRecipeDietaryTrait(
   ingredients: Array<{ defaultTrait: DietaryTrait }>,

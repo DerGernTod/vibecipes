@@ -1,0 +1,12 @@
+#!/bin/sh
+# Retitles the GitHub issue whose number is $1 from a JSON payload on stdin.
+set -eu
+
+id=${1:-}
+[ -n "$id" ] || { echo "id required" >&2; exit 1; }
+
+payload=$(cat)
+title=$(printf '%s' "$payload" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{process.stdout.write(JSON.parse(s).title||'')})")
+[ -n "$title" ] || { echo "title required" >&2; exit 1; }
+
+gh issue edit "$id" --title "$title"

@@ -1,7 +1,8 @@
 import { recipes, recipeSteps, recipeStepIngredients } from './schema.ts';
 import { count, eq } from 'drizzle-orm';
+import type { db as AppDb } from './index.ts';
 
-export async function seedDemoRecipes(db: any) {
+export async function seedDemoRecipes(db: typeof AppDb) {
   try {
     const [{ value }] = await db.select({ value: count() }).from(recipes);
     if (Number(value) > 0) {

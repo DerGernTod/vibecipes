@@ -4,6 +4,11 @@ dist/
 *.db-journal
 *.db-shm
 *.db-wal
+# Import failure reports (contain user URLs and notes)
+import-reports/
 .DS_Store
 scratch/
 .vite/
+
+# Noodle runtime state
+.noodle/

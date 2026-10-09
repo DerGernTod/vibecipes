@@ -1,23 +1,27 @@
-import { Hono } from 'hono';
+import { Hono, type Context } from 'hono';
 import { eq, inArray } from 'drizzle-orm';
 import { db } from './db/index.ts';
 import { recipes, recipeSteps, recipeStepIngredients, ingredients, users, sessions } from './db/schema.ts';
 import { getSignedCookie } from 'hono/cookie';
 import { calculateRecipeDietaryTrait } from '../domain/dietary.ts';
-import type {
-  RecipeDto,
-  RecipeStepDto,
-  RecipeStepIngredientDto,
-  AggregatedIngredientDto,
-  IngredientDto,
-  CreateRecipeRequest,
-  UpdateRecipeRequest,
-  DietaryTrait,
-} from '../shared/types.ts';
+import { extractRecipeJsonLd, normalizeIngredient } from '../domain/import.ts';
+import { fuzzyMatch } from './index.ts';
+import {
+  importUrlRequestSchema,
+  createRecipeRequestSchema,
+  updateRecipeRequestSchema,
+  type RecipeDto,
+  type RecipeStepDto,
+  type RecipeStepIngredientDto,
+  type AggregatedIngredientDto,
+  type IngredientDto,
+  type DietaryTrait,
+} from '../shared/schemas.ts';
+import { parseJsonBody } from './parseBody.ts';
 
 const COOKIE_SECRET = process.env.COOKIE_SECRET || 'vibecipes-dev-secret-key-32-chars-minimum!';
 
-async function getOptionalUserId(c: any): Promise<string | null> {
+async function getOptionalUserId(c: Context): Promise<string | null> {
   try {
     const sessionId = await getSignedCookie(c, COOKIE_SECRET, 'vibecipes_session');
     if (!sessionId) return null;
@@ -169,6 +173,105 @@ export async function buildRecipeDto(recipeId: string): Promise<RecipeDto | null
 }
 
 export const recipeRoutes = new Hono()
+  .post('/import-url', async (c) => {
+    const parsedUrl = await parseJsonBody(c, importUrlRequestSchema);
+    if (!parsedUrl.ok) return c.json({ error: parsedUrl.error }, 400);
+    const url = parsedUrl.data.url;
+
+    try {
+      const response = await fetch(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+          'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+          'Accept-Language': 'en-US,en;q=0.5',
+        }
+      });
+      
+      if (!response.ok) {
+        return c.json({ error: `Failed to fetch URL: ${response.statusText}` }, 400);
+      }
+
+      const html = await response.text();
+      const ldJson = extractRecipeJsonLd(html);
+
+      if (!ldJson) {
+        return c.json({ error: 'No Schema.org Recipe data found on the page' }, 404);
+      }
+
+      const title = ldJson.name || 'Imported Recipe';
+      let description = ldJson.description || '';
+      if (Array.isArray(description)) description = description.join('\n');
+
+      let servings = 4;
+      if (ldJson.recipeYield) {
+        const yieldStr = Array.isArray(ldJson.recipeYield) ? ldJson.recipeYield[0] : ldJson.recipeYield;
+        const match = yieldStr.toString().match(/\d+/);
+        if (match) servings = parseInt(match[0], 10);
+      }
+      
+      let imageUrl = null;
+      if (ldJson.image) {
+         if (typeof ldJson.image === 'string') imageUrl = ldJson.image;
+         else if (Array.isArray(ldJson.image) && typeof ldJson.image[0] === 'string') imageUrl = ldJson.image[0];
+         else if (ldJson.image.url) imageUrl = ldJson.image.url;
+      }
+
+      const stepIngredients: RecipeStepIngredientDto[] = [];
+      const rawIngredients = Array.isArray(ldJson.recipeIngredient) ? ldJson.recipeIngredient : (ldJson.recipeIngredient ? [ldJson.recipeIngredient] : []);
+      
+      const allIngredients = await db.select().from(ingredients);
+
+      for (const rawIng of rawIngredients) {
+        if (typeof rawIng !== 'string') continue;
+        const norm = normalizeIngredient(rawIng);
+        
+        let matchedId = allIngredients[0]?.id || 'unknown';
+        for (const dbIng of allIngredients) {
+          const dbNameEn = dbIng.primaryNameEn.toLowerCase();
+          const dbNameDe = dbIng.primaryNameDe.toLowerCase();
+          const q = norm.name.toLowerCase();
+          
+          if (q.includes(dbNameEn) || dbNameEn.includes(q) || q.includes(dbNameDe) || dbNameDe.includes(q)) {
+            matchedId = dbIng.id;
+            break;
+          } else {
+             const aliases = JSON.parse(dbIng.aliasesJson);
+             let found = false;
+             for (const alias of aliases) {
+                if (q.includes(alias.toLowerCase()) || alias.toLowerCase().includes(q)) {
+                   matchedId = dbIng.id;
+                   found = true;
+                   break;
+                }
+             }
+             if (found) break;
+          }
+        }
+
+        stepIngredients.push({
+          id: crypto.randomUUID(),
+          stepId: 'temp',
+          canonicalIngredientId: matchedId,
+          rawText: norm.rawText,
+          amount: norm.amount,
+          unit: norm.unit,
+          preparationNote: null,
+          ingredient: undefined
+        });
+      }
+
+      return c.json({
+        title,
+        description,
+        servings,
+        imageUrl,
+        ingredients: stepIngredients
+      });
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      return c.json({ error: 'Failed to process URL: ' + message }, 500);
+    }
+  })
   .get('/', async (c) => {
     const allRecipes = await db.select().from(recipes);
     const result: RecipeDto[] = [];
@@ -191,10 +294,9 @@ export const recipeRoutes = new Hono()
   })
 
   .post('/', async (c) => {
-    const body = await c.req.json<CreateRecipeRequest>();
-    if (!body.title || body.title.trim().length === 0) {
-      return c.json({ error: 'Recipe title is required' }, 400);
-    }
+    const parsedCreate = await parseJsonBody(c, createRecipeRequestSchema);
+    if (!parsedCreate.ok) return c.json({ error: parsedCreate.error }, 400);
+    const body = parsedCreate.data;
 
     const userId = await getOptionalUserId(c);
     const now = new Date().toISOString();
@@ -253,7 +355,9 @@ export const recipeRoutes = new Hono()
       return c.json({ error: 'Recipe not found' }, 404);
     }
 
-    const body = await c.req.json<UpdateRecipeRequest>();
+    const parsedUpdate = await parseJsonBody(c, updateRecipeRequestSchema);
+    if (!parsedUpdate.ok) return c.json({ error: parsedUpdate.error }, 400);
+    const body = parsedUpdate.data;
     const now = new Date().toISOString();
 
     await db

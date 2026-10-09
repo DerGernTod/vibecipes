@@ -1,7 +1,9 @@
 import React, { useEffect, useState } from 'react';
-import type { RecipeDto } from '../shared/types.ts';
+import { recipeDtoSchema, type RecipeDto } from '../shared/schemas.ts';
+import { readJson } from './http.ts';
 import { useLanguage } from './LanguageContext.tsx';
 import { scaleQuantity, convertToSystem, formatIngredientAmount } from '../domain/units.ts';
+import { Button, Chip, TraitChip } from './ui/index.ts';
 
 interface RecipeDetailProps {
   recipeId: string;
@@ -9,13 +11,15 @@ interface RecipeDetailProps {
   onEdit: (id: string) => void;
 }
 
+type UnitSystem = 'metric' | 'imperial';
+
 export function RecipeDetail({ recipeId, onBack, onEdit }: RecipeDetailProps) {
   const { t, lang } = useLanguage();
   const [recipe, setRecipe] = useState<RecipeDto | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [targetServings, setTargetServings] = useState<number>(1);
-  const [system, setSystem] = useState<'metric' | 'imperial'>('metric');
+  const [system, setSystem] = useState<UnitSystem>('metric');
 
   useEffect(() => {
     async function loadRecipe() {
@@ -23,7 +27,7 @@ export function RecipeDetail({ recipeId, onBack, onEdit }: RecipeDetailProps) {
       try {
         const res = await fetch(`/api/recipes/${recipeId}`);
         if (res.ok) {
-          const data: RecipeDto = await res.json();
+          const data = await readJson(res, recipeDtoSchema);
           setRecipe(data);
           setTargetServings(data.servings);
         } else {
@@ -38,163 +42,130 @@ export function RecipeDetail({ recipeId, onBack, onEdit }: RecipeDetailProps) {
     loadRecipe();
   }, [recipeId]);
 
-  if (loading) return <p style={{ color: 'var(--muted)' }}>{t('Loading recipe details...', 'Lade Rezeptdetails...')}</p>;
-  if (error || !recipe) return <div style={{ color: '#ef4444' }}>{error || 'Error loading recipe'}</div>;
+  if (loading) return <div className="page-state">{t('Loading recipe details...', 'Lade Rezeptdetails...')}</div>;
+  if (error || !recipe) return <div className="page-state page-state--error">{error || 'Error loading recipe'}</div>;
 
-  const renderTraitBadge = () => {
-    const trait = recipe.effectiveTrait;
-    const isOverridden = !!recipe.overrideTrait;
-    let traitClass = 'trait-unverified';
-    if (trait === 'VEGAN') traitClass = 'trait-vegan';
-    if (trait === 'VEGETARIAN') traitClass = 'trait-vegetarian';
-    if (trait === 'OMNIVORE') traitClass = 'trait-omnivore';
+  const factor = targetServings / recipe.servings;
+  const isOverridden = !!recipe.overrideTrait;
+  const scalingWarning = factor > 2 || factor < 0.25;
 
-    return (
-      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.2rem' }}>
-        <span className={`trait-badge ${traitClass}`} style={{ fontSize: '0.85rem', padding: '0.3rem 0.65rem' }}>
-          {trait} {isOverridden ? '⚡' : ''}
-        </span>
-        {isOverridden && (
-          <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>
-            ({t('Calculated:', 'Berechnet:')} {recipe.calculatedTrait})
-          </span>
-        )}
-      </div>
-    );
+  /** Scale, convert and format one ingredient amount for the current servings and unit system. */
+  const formatAmount = (amount: number, unit: string, densityGPerMl: number | null | undefined) => {
+    const scaled = scaleQuantity(amount, factor);
+    const converted = convertToSystem(scaled, unit, densityGPerMl || null, system);
+    return formatIngredientAmount(converted.amount, converted.unit, lang, system);
   };
 
   return (
-    <div>
-      <div style={{ display: 'flex', gap: '0.5rem', marginBottom: '1rem' }}>
-        <button className="btn-secondary" onClick={onBack}>
-          ← {t('Back to List', 'Zurück zur Übersicht')}
-        </button>
-        <button className="btn-primary" onClick={() => onEdit(recipe.id)}>
-          ✏️ {t('Edit Recipe', 'Rezept bearbeiten')}
-        </button>
+    <div className="detail">
+      <section className={`detail-hero ${recipe.imageUrl ? '' : 'detail-hero--plain'}`}>
+        {recipe.imageUrl && (
+          <>
+            <img className="detail-hero__media" src={recipe.imageUrl} alt="" />
+            <div className="detail-hero__scrim" />
+          </>
+        )}
+        <div className="detail-hero__actions">
+          <Button variant="secondary" size="sm" onClick={onBack}>
+            ← {t('Back to List', 'Zurück zur Übersicht')}
+          </Button>
+          <Button variant="primary" size="sm" onClick={() => onEdit(recipe.id)}>
+            {t('Edit Recipe', 'Rezept bearbeiten')}
+          </Button>
+        </div>
+        <div className="detail-hero__content">
+          <div className="detail-hero__meta">
+            <TraitChip trait={recipe.effectiveTrait} />
+            {isOverridden && (
+              <span className="detail-hero__note">
+                {t('Override', 'Überschrieben')} · {t('calculated:', 'berechnet:')} {recipe.calculatedTrait}
+              </span>
+            )}
+          </div>
+          <h1 className="detail-hero__title">{recipe.title}</h1>
+          {recipe.description && <p className="detail-hero__desc">{recipe.description}</p>}
+        </div>
+      </section>
+
+      <div className="detail-controls">
+        <div className="detail-controls__group">
+          <span>{t('Servings', 'Portionen')}</span>
+          <div className="stepper">
+            <Button variant="secondary" size="sm" aria-label={t('Fewer servings', 'Weniger Portionen')} onClick={() => setTargetServings(s => Math.max(1, s - 1))}>−</Button>
+            <strong className="stepper__value">{targetServings}</strong>
+            <Button variant="secondary" size="sm" aria-label={t('More servings', 'Mehr Portionen')} onClick={() => setTargetServings(s => s + 1)}>+</Button>
+          </div>
+        </div>
+        <div className="segmented" role="group" aria-label={t('Unit system', 'Maßsystem')}>
+          <button type="button" className="segmented__btn" aria-pressed={system === 'metric'} onClick={() => setSystem('metric')}>
+            {t('Metric (g, ml)', 'Metrisch (g, ml)')}
+          </button>
+          <button type="button" className="segmented__btn" aria-pressed={system === 'imperial'} onClick={() => setSystem('imperial')}>
+            {t('Imperial (tsp, oz)', 'Imperial (TL, oz)')}
+          </button>
+        </div>
       </div>
 
-      <div className="card" style={{ padding: 0, overflow: 'hidden' }}>
-        {recipe.imageUrl && (
-          <div style={{ width: '100%', height: '260px', overflow: 'hidden', position: 'relative' }}>
-            <img src={recipe.imageUrl} alt={recipe.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-            <div style={{ position: 'absolute', bottom: 0, left: 0, right: 0, height: '80px', background: 'linear-gradient(to top, var(--card), transparent)' }} />
+      {scalingWarning && (
+        <div className="detail-controls">
+          <div className="notice notice--warn" style={{ width: '100%' }}>
+            ⚠️ {t('Scaling above 2x or below 0.25x may require recipe adjustments.', 'Skalierung über 2x oder unter 0.25x erfordert möglicherweise Rezeptanpassungen.')}
           </div>
-        )}
+        </div>
+      )}
 
-        <div style={{ padding: '1.5rem' }}>
-          <div className="recipe-detail-header">
-            <div>
-              <h1 style={{ margin: '0 0 0.5rem 0' }}>{recipe.title}</h1>
-              <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                  <span style={{ color: 'var(--muted)' }}>🍽️ {t('Servings:', 'Portionen:')}</span>
-                  <button className="btn-secondary" style={{ padding: '0.2rem 0.6rem' }} onClick={() => setTargetServings(s => Math.max(1, s - 1))}>-</button>
-                  <strong>{targetServings}</strong>
-                  <button className="btn-secondary" style={{ padding: '0.2rem 0.6rem' }} onClick={() => setTargetServings(s => s + 1)}>+</button>
-                </div>
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginLeft: 'auto' }}>
-                  <div className="lang-toggle-group">
-                    <button 
-                      className={`lang-btn ${system === 'metric' ? 'active' : ''}`}
-                      onClick={() => setSystem('metric')}
-                    >
-                      {t('Metric (g, ml)', 'Metrisch (g, ml)')}
-                    </button>
-                    <button 
-                      className={`lang-btn ${system === 'imperial' ? 'active' : ''}`}
-                      onClick={() => setSystem('imperial')}
-                    >
-                      {t('Imperial (tsp, oz)', 'Imperial (TL, oz)')}
-                    </button>
-                  </div>
-                </div>
-              </div>
-            </div>
-            {renderTraitBadge()}
-          </div>
-
-          {(targetServings / recipe.servings > 2 || targetServings / recipe.servings < 0.25) && (
-            <div style={{ backgroundColor: 'rgba(239, 68, 68, 0.1)', color: '#ef4444', border: '1px solid #ef4444', padding: '0.75rem', borderRadius: '4px', margin: '0 0 1rem 0' }}>
-              ⚠️ {t('Scaling above 2x or below 0.25x may require recipe adjustments.', 'Skalierung über 2x oder unter 0.25x erfordert möglicherweise Rezeptanpassungen.')}
-            </div>
-          )}
-
-        {recipe.description && (
-          <p style={{ fontSize: '1rem', color: '#cbd5e1', lineHeight: '1.5' }}>
-            {recipe.description}
-          </p>
-        )}
-
-        {/* Aggregated Total Ingredients Overview */}
-        {recipe.aggregatedIngredients && recipe.aggregatedIngredients.length > 0 && (
-          <div className="aggregated-box">
-            <h3 style={{ margin: '0 0 0.75rem 0', color: 'var(--primary)' }}>
-              📦 {t('Total Ingredients Required', 'Gesamte benötigte Zutaten')}
-            </h3>
-            <ul style={{ margin: 0, paddingLeft: '1.2rem' }}>
+      <div className="detail-body">
+        <aside className="detail-body__ingredients">
+          <h2 className="detail-section-title">{t('Total Ingredients', 'Gesamte Zutaten')}</h2>
+          {recipe.aggregatedIngredients && recipe.aggregatedIngredients.length > 0 ? (
+            <ul className="ingredient-list">
               {recipe.aggregatedIngredients.map((item, idx) => {
                 const name = lang === 'de' && item.ingredient ? item.ingredient.primaryNameDe : (item.ingredient?.primaryNameEn || item.canonicalIngredientId);
-                const notesStr = item.preparationNotes.length > 0 ? ` (${item.preparationNotes.join(', ')})` : '';
+                const notes = item.preparationNotes.length > 0 ? ` (${item.preparationNotes.join(', ')})` : '';
                 return (
                   <li key={idx}>
-                    {(() => {
-                      const scaled = scaleQuantity(item.totalAmount, targetServings / recipe.servings);
-                      const density = item.ingredient?.densityGPerMl || null;
-                      const converted = convertToSystem(scaled, item.unit, density, system);
-                      const formatted = formatIngredientAmount(converted.amount, converted.unit, lang, system);
-                      return <strong>{formatted}</strong>;
-                    })()} {name}{notesStr}
+                    <span className="ingredient-list__amount">{formatAmount(item.totalAmount, item.unit, item.ingredient?.densityGPerMl)}</span>
+                    <span>{name}{notes}</span>
                   </li>
                 );
               })}
             </ul>
-          </div>
-        )}
+          ) : (
+            <p className="field__hint">{t('No ingredients yet.', 'Noch keine Zutaten.')}</p>
+          )}
+        </aside>
 
-        {/* Ordered Recipe Steps */}
-        <h3>📋 {t('Preparation Steps', 'Zubereitungsschritte')}</h3>
-        {recipe.steps.length === 0 ? (
-          <p style={{ color: 'var(--muted)' }}>{t('No steps added yet.', 'Noch keine Schritte hinzugefügt.')}</p>
-        ) : (
-          recipe.steps.map((step, index) => (
-            <div key={step.id || index} className="step-item">
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div className="step-number">
-                  {t('Step', 'Schritt')} {index + 1}
+        <section>
+          <h2 className="detail-section-title">{t('Preparation Steps', 'Zubereitungsschritte')}</h2>
+          {recipe.steps.length === 0 ? (
+            <p className="field__hint">{t('No steps added yet.', 'Noch keine Schritte hinzugefügt.')}</p>
+          ) : (
+            recipe.steps.map((step, index) => (
+              <article key={step.id || index} className="step">
+                <div className="step__head">
+                  <span className="step__number">{t('Step', 'Schritt')} {index + 1}</span>
+                  {step.timerSec ? (
+                    <Chip tone="meta">⏱ {step.timerSec}s · {Math.floor(step.timerSec / 60)}m {step.timerSec % 60}s</Chip>
+                  ) : null}
                 </div>
-                {step.timerSec && (
-                  <div className="timer-badge">
-                    ⏱️ {step.timerSec}s ({Math.floor(step.timerSec / 60)}m {step.timerSec % 60}s)
+                <p className="step__text">{step.instruction}</p>
+                {step.ingredients.length > 0 && (
+                  <div className="step__ingredients">
+                    {step.ingredients.map((ing, iIdx) => {
+                      const ingName = lang === 'de' && ing.ingredient ? ing.ingredient.primaryNameDe : (ing.ingredient?.primaryNameEn || ing.canonicalIngredientId);
+                      const amount = formatAmount(ing.amount, ing.unit, ing.ingredient?.densityGPerMl);
+                      return (
+                        <Chip key={iIdx} tone="meta" style={{ textTransform: 'none', letterSpacing: 0, fontSize: 'var(--fs-sm)', padding: '0.3rem 0.7rem' }}>
+                          <strong style={{ color: 'var(--text)' }}>{amount}</strong> {ingName}{ing.preparationNote ? ` (${ing.preparationNote})` : ''}
+                        </Chip>
+                      );
+                    })}
                   </div>
                 )}
-              </div>
-              <p style={{ fontSize: '0.98rem', margin: '0.5rem 0 0.75rem 0', lineHeight: '1.4' }}>
-                {step.instruction}
-              </p>
-
-              {step.ingredients.length > 0 && (
-                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginTop: '0.5rem' }}>
-                  {step.ingredients.map((ing, iIdx) => {
-                    const ingName = lang === 'de' && ing.ingredient ? ing.ingredient.primaryNameDe : (ing.ingredient?.primaryNameEn || ing.canonicalIngredientId);
-                    return (
-                      <span key={iIdx} className="detail-chip parent-chip">
-                        {(() => {
-                          const scaled = scaleQuantity(ing.amount, targetServings / recipe.servings);
-                          const density = ing.ingredient?.densityGPerMl || null;
-                          const converted = convertToSystem(scaled, ing.unit, density, system);
-                          const formatted = formatIngredientAmount(converted.amount, converted.unit, lang, system);
-                          return <strong>{formatted}</strong>;
-                        })()} {ingName} {ing.preparationNote ? `(${ing.preparationNote})` : ''}
-                      </span>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
-          ))
-        )}
-        </div>
+              </article>
+            ))
+          )}
+        </section>
       </div>
     </div>
   );
