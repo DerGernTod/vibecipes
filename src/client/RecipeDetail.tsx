@@ -149,6 +149,7 @@ export function RecipeDetail({ recipeId, onBack, onEdit }: RecipeDetailProps) {
                   ) : null}
                 </div>
                 <p className="step__text">{step.instruction}</p>
+                {step.imageUrl && <img className="step__image" src={step.imageUrl} alt="" loading="lazy" />}
                 {step.ingredients.length > 0 && (
                   <div className="step__ingredients">
                     {step.ingredients.map((ing, iIdx) => {

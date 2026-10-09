@@ -13,6 +13,7 @@ import { readErrorMessage, readJson } from './http.ts';
 import { calculateRecipeDietaryTrait } from '../domain/dietary.ts';
 import { useLanguage } from './LanguageContext.tsx';
 import { UrlImportModal, type ImportOrigin } from './UrlImportModal.tsx';
+import { PhotoImportModal, type PhotoImportDraft } from './PhotoImportModal.tsx';
 import { ImportReportForm } from './ImportReportForm.tsx';
 import { Button, Field, Input, Panel } from './ui/index.ts';
 
@@ -37,6 +38,7 @@ export function RecipeEditor({ recipeId, onSaveSuccess, onCancel }: RecipeEditor
   const [saving, setSaving] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [showPhotoImport, setShowPhotoImport] = useState(false);
   // The last import, kept with the extracted recipe as the server returned it (edits do not change it).
   const [importOrigin, setImportOrigin] = useState<(ImportOrigin & { attempt: number; recipe: ImportedRecipe }) | null>(null);
 
@@ -57,6 +59,16 @@ export function RecipeEditor({ recipeId, onSaveSuccess, onCancel }: RecipeEditor
           preparationNote: ing.preparationNote || ''
         }))
       }]);
+    }
+  };
+
+  // Replaces the form with a photo draft. Its steps have no ingredient links yet; those are added in the step picker.
+  const handlePhotoImport = (draft: PhotoImportDraft) => {
+    setShowPhotoImport(false);
+    setImportOrigin(null);
+    if (draft.title) setTitle(draft.title);
+    if (draft.steps.length > 0) {
+      setSteps(draft.steps.map((s) => ({ instruction: s.instruction, timerSec: null, imageUrl: s.imageUrl, ingredients: [] })));
     }
   };
 
@@ -94,6 +106,7 @@ export function RecipeEditor({ recipeId, onSaveSuccess, onCancel }: RecipeEditor
               data.steps.map((s) => ({
                 instruction: s.instruction,
                 timerSec: s.timerSec,
+                imageUrl: s.imageUrl ?? null,
                 ingredients: s.ingredients.map((i) => ({
                   canonicalIngredientId: i.canonicalIngredientId,
                   amount: i.amount,
@@ -148,6 +161,10 @@ export function RecipeEditor({ recipeId, onSaveSuccess, onCancel }: RecipeEditor
     setSteps((prev) =>
       prev.map((s, idx) => (idx === stepIdx ? { ...s, instruction: val } : s))
     );
+  };
+
+  const handleStepImageChange = (stepIdx: number, imageUrl: string | null) => {
+    setSteps((prev) => prev.map((s, idx) => (idx === stepIdx ? { ...s, imageUrl } : s)));
   };
 
   const handleStepTimerChange = (stepIdx: number, val: string) => {
@@ -224,6 +241,7 @@ export function RecipeEditor({ recipeId, onSaveSuccess, onCancel }: RecipeEditor
       steps: steps.map((s) => ({
         instruction: s.instruction.trim(),
         timerSec: s.timerSec,
+        imageUrl: s.imageUrl ?? null,
         ingredients: s.ingredients.map((i) => ({
           canonicalIngredientId: i.canonicalIngredientId,
           amount: Number(i.amount) || 0,
@@ -268,9 +286,14 @@ export function RecipeEditor({ recipeId, onSaveSuccess, onCancel }: RecipeEditor
       <div className="editor-header">
         <h2>{recipeId ? t('Edit Recipe', 'Rezept bearbeiten') : t('Create New Recipe', 'Neues Rezept erstellen')}</h2>
         {!recipeId && (
-          <Button size="sm" onClick={() => setShowImportModal(true)}>
-            🔗 {t('Import from URL', 'Von URL importieren')}
-          </Button>
+          <div className="editor-header__actions">
+            <Button size="sm" onClick={() => setShowImportModal(true)}>
+              🔗 {t('Import from URL', 'Von URL importieren')}
+            </Button>
+            <Button size="sm" onClick={() => setShowPhotoImport(true)}>
+              📷 {t('Import from Photo', 'Aus Foto importieren')}
+            </Button>
+          </div>
         )}
       </div>
       {!recipeId && importOrigin && (
@@ -290,6 +313,10 @@ export function RecipeEditor({ recipeId, onSaveSuccess, onCancel }: RecipeEditor
         onClose={() => setShowImportModal(false)}
         onImport={handleImport}
       />
+
+      {showPhotoImport && (
+        <PhotoImportModal onClose={() => setShowPhotoImport(false)} onApply={handlePhotoImport} />
+      )}
 
       {error && <div className="alert alert--error">{error}</div>}
 
@@ -377,6 +404,15 @@ export function RecipeEditor({ recipeId, onSaveSuccess, onCancel }: RecipeEditor
                 </Button>
               )}
             </div>
+
+            {step.imageUrl && (
+              <div className="editor-step__image">
+                <img src={step.imageUrl} alt={t('Step photo', 'Schrittfoto')} />
+                <Button size="sm" onClick={() => handleStepImageChange(sIdx, null)}>
+                  {t('Remove photo', 'Foto entfernen')}
+                </Button>
+              </div>
+            )}
 
             <Field label={t('Instruction', 'Anweisung')} htmlFor={`ed-step-${sIdx}-instruction`}>
               <textarea

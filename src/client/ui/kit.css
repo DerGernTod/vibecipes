@@ -1215,3 +1215,94 @@
   font-size: var(--fs-xs);
   color: var(--muted);
 }
+
+/* Photo import: crop canvas beside the draft editor. */
+.modal--wide {
+  width: min(1100px, 100%);
+}
+
+.editor-header__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+
+.photo-import {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: var(--space-6);
+  align-items: start;
+}
+
+.photo-import__pane {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  min-width: 0;
+}
+
+.photo-import__canvas {
+  display: block;
+  width: 100%;
+  height: auto;
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  cursor: crosshair;
+  touch-action: none;
+  user-select: none;
+}
+
+.photo-import__regions,
+.photo-region,
+.photo-step {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.photo-region__head,
+.photo-region__actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.photo-region__actions select {
+  flex: 1 1 140px;
+}
+
+.photo-region,
+.photo-step {
+  padding: var(--space-3);
+  border: 1px solid var(--line-soft);
+  border-radius: var(--radius-md);
+}
+
+.photo-step__image,
+.editor-step__image {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.photo-step__image img,
+.editor-step__image img {
+  width: 96px;
+  height: 96px;
+  object-fit: cover;
+  border-radius: var(--radius-sm);
+}
+
+.step__image {
+  display: block;
+  max-width: min(360px, 100%);
+  margin-top: var(--space-3);
+  border-radius: var(--radius-md);
+}
+
+@media (max-width: 860px) {
+  .photo-import {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}

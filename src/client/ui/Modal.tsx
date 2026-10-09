@@ -6,15 +6,17 @@ interface ModalProps {
   onClose: () => void;
   /** Blocks the close button while work is in flight. */
   closeDisabled?: boolean;
+  /** Uses the full content width for side-by-side layouts. */
+  wide?: boolean;
   children: React.ReactNode;
 }
 
 /** Centred dialog over a dimmed backdrop. Closes only via the × button; callers own the rest. */
-export function Modal({ title, onClose, closeDisabled = false, children }: ModalProps) {
+export function Modal({ title, onClose, closeDisabled = false, wide = false, children }: ModalProps) {
   const { t } = useLanguage();
   return (
     <div className="modal-backdrop">
-      <div className="modal" role="dialog" aria-modal="true" aria-label={title}>
+      <div className={wide ? 'modal modal--wide' : 'modal'} role="dialog" aria-modal="true" aria-label={title}>
         <button
           type="button"
           className="modal__close"
