@@ -31,6 +31,7 @@ export const recipeSteps = sqliteTable('recipe_steps', {
   stepIndex: integer('step_index').notNull(),
   instruction: text('instruction').notNull(),
   timerSec: integer('timer_sec'),
+  imageUrl: text('image_url'),
 });
 
 export const recipeStepIngredients = sqliteTable('recipe_step_ingredients', {

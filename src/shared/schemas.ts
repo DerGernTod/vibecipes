@@ -119,12 +119,20 @@ export const recipeStepIngredientDtoSchema = z.object({
 });
 export type RecipeStepIngredientDto = z.infer<typeof recipeStepIngredientDtoSchema>;
 
+// A step photo is a cropped image sent inline as a base64 data URL. Only raster image types are accepted.
+const STEP_IMAGE_MAX_CHARS = 1_000_000;
+export const stepImageDataUrlSchema = z
+  .string()
+  .max(STEP_IMAGE_MAX_CHARS, 'Step image is too large')
+  .regex(/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/]+=*$/, 'Step image must be a JPEG, PNG or WebP data URL');
+
 export const recipeStepDtoSchema = z.object({
   id: z.string(),
   recipeId: z.string(),
   stepIndex: z.number(),
   instruction: z.string(),
   timerSec: z.number().nullable(),
+  imageUrl: z.string().nullish(),
   ingredients: z.array(recipeStepIngredientDtoSchema),
 });
 export type RecipeStepDto = z.infer<typeof recipeStepDtoSchema>;
@@ -168,6 +176,7 @@ export type CreateRecipeStepIngredientInput = z.infer<typeof createRecipeStepIng
 export const createRecipeStepSchema = z.object({
   instruction: z.string(),
   timerSec: z.number().nullish(),
+  imageUrl: stepImageDataUrlSchema.nullish(),
   ingredients: z.array(createRecipeStepIngredientSchema),
 });
 export type CreateRecipeStepInput = z.infer<typeof createRecipeStepSchema>;

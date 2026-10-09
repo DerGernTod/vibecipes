@@ -193,6 +193,12 @@ export async function initDb() {
       );
     `);
 
+    try {
+      await client.execute(`ALTER TABLE recipe_steps ADD COLUMN image_url TEXT;`);
+    } catch {
+      // Column already exists
+    }
+
     await client.execute(`
       CREATE TABLE IF NOT EXISTS recipe_step_ingredients (
         id TEXT PRIMARY KEY,

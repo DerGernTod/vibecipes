@@ -113,6 +113,7 @@ export async function buildRecipeDto(recipeId: string): Promise<RecipeDto | null
       stepIndex: step.stepIndex,
       instruction: step.instruction,
       timerSec: step.timerSec ?? null,
+      imageUrl: step.imageUrl ?? null,
       ingredients: stepIngs,
     };
   });
@@ -325,6 +326,7 @@ export const recipeRoutes = new Hono()
           stepIndex: idx,
           instruction: stepInput.instruction || '',
           timerSec: stepInput.timerSec ?? null,
+          imageUrl: stepInput.imageUrl || null,
         });
 
         if (stepInput.ingredients && Array.isArray(stepInput.ingredients)) {
@@ -391,6 +393,7 @@ export const recipeRoutes = new Hono()
           stepIndex: idx,
           instruction: stepInput.instruction || '',
           timerSec: stepInput.timerSec ?? null,
+          imageUrl: stepInput.imageUrl || null,
         });
 
         if (stepInput.ingredients && Array.isArray(stepInput.ingredients)) {
