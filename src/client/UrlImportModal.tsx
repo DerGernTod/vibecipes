@@ -1,12 +1,23 @@
 import React, { useState } from 'react';
 import { useLanguage } from './LanguageContext.tsx';
+import { Button, Field, Input, Modal } from './ui/index.ts';
+import { importedRecipeSchema, type ImportedRecipe } from '../shared/schemas.ts';
+import { readErrorMessage, readJson } from './http.ts';
+
+// Where an imported recipe came from. The editor keeps this so the user can report the extraction.
+export interface ImportOrigin {
+  url: string;
+  httpStatus: number;
+}
 
 interface UrlImportModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onImport: (data: any) => void;
+  onImport: (recipe: ImportedRecipe, origin: ImportOrigin) => void;
 }
 
+// On success the modal closes and the editor shows the result, including the report form.
+// On failure the modal shows the error and stays open.
 export function UrlImportModal({ isOpen, onClose, onImport }: UrlImportModalProps) {
   const { t } = useLanguage();
   const [url, setUrl] = useState('');
@@ -15,61 +26,58 @@ export function UrlImportModal({ isOpen, onClose, onImport }: UrlImportModalProp
 
   if (!isOpen) return null;
 
-  const handleFetch = async () => {
-    if (!url.trim()) return;
+  const handleUrlChange = (value: string) => {
+    setUrl(value);
+    setError(null);
+  };
+
+  const handleImport = async () => {
+    const trimmed = url.trim();
+    if (!trimmed) return;
     setLoading(true);
     setError(null);
     try {
       const res = await fetch('/api/recipes/import-url', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ url: url.trim() })
+        body: JSON.stringify({ url: trimmed })
       });
       if (res.ok) {
-        const data = await res.json();
-        onImport(data);
-        onClose();
+        const recipe = await readJson(res, importedRecipeSchema);
+        onImport(recipe, { url: trimmed, httpStatus: res.status });
         setUrl('');
+        onClose();
       } else {
-        const errData = await res.json().catch(() => ({}));
-        setError(errData.error || t('Failed to fetch recipe from URL', 'Rezept konnte nicht von der URL geladen werden'));
+        setError(await readErrorMessage(res, t('Failed to fetch recipe from URL', 'Rezept konnte nicht von der URL geladen werden')));
       }
-    } catch (err: any) {
-      setError(err.message || String(err));
+    } catch (err: unknown) {
+      setError(err instanceof Error && err.message ? err.message : String(err));
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div style={{
-      position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
-      backgroundColor: 'rgba(0,0,0,0.5)', display: 'flex',
-      alignItems: 'center', justifyContent: 'center', zIndex: 1000
-    }}>
-      <div className="card" style={{ width: '400px', maxWidth: '90%' }}>
-        <h3>{t('Import Recipe from URL', 'Rezept von URL importieren')}</h3>
-        {error && <div style={{ color: '#ef4444', marginBottom: '1rem' }}>{error}</div>}
-        <div className="form-group">
-          <label>{t('Recipe URL', 'Rezept-URL')}</label>
-          <input
-            type="url"
-            className="form-control"
-            value={url}
-            onChange={e => setUrl(e.target.value)}
-            placeholder="https://example.com/recipe"
-            disabled={loading}
-          />
-        </div>
-        <div style={{ display: 'flex', gap: '1rem', marginTop: '1rem', justifyContent: 'flex-end' }}>
-          <button className="btn-secondary" onClick={onClose} disabled={loading}>
-            {t('Cancel', 'Abbrechen')}
-          </button>
-          <button className="btn-primary" onClick={handleFetch} disabled={loading || !url.trim()}>
-            {loading ? t('Importing...', 'Importiere...') : t('Import', 'Importieren')}
-          </button>
-        </div>
+    <Modal title={t('Import Recipe from URL', 'Rezept von URL importieren')} onClose={onClose} closeDisabled={loading}>
+      <Field label={t('Recipe URL', 'Rezept-URL')} htmlFor="import-url">
+        <Input
+          id="import-url"
+          type="url"
+          value={url}
+          onChange={e => handleUrlChange(e.target.value)}
+          placeholder="https://example.com/recipe"
+          disabled={loading}
+        />
+      </Field>
+      {error && <div className="alert alert--error">{error}</div>}
+      <div className="modal__actions">
+        <Button onClick={onClose} disabled={loading}>
+          {t('Cancel', 'Abbrechen')}
+        </Button>
+        <Button variant="primary" onClick={handleImport} disabled={loading || !url.trim()}>
+          {loading ? t('Importing...', 'Importiere...') : t('Import', 'Importieren')}
+        </Button>
       </div>
-    </div>
+    </Modal>
   );
 }

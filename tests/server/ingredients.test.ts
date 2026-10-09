@@ -2,7 +2,7 @@ import { describe, it, expect, beforeAll } from 'vitest';
 import { app, initDb } from '../../src/server/index.ts';
 import { db } from '../../src/server/db/index.ts';
 import { seedIngredients, CANONICAL_INGREDIENTS } from '../../src/server/db/seed.ts';
-import type { IngredientDto } from '../../src/shared/types.ts';
+import { ingredientListSchema } from '../../src/shared/schemas.ts';
 
 describe('Canonical Ingredient Taxonomy & Seed Catalog API', () => {
   beforeAll(async () => {
@@ -14,7 +14,7 @@ describe('Canonical Ingredient Taxonomy & Seed Catalog API', () => {
     const res = await app.fetch(req);
 
     expect(res.status).toBe(200);
-    const list: IngredientDto[] = await res.json();
+    const list = ingredientListSchema.parse(await res.json());
     expect(list.length).toBeGreaterThanOrEqual(60);
     expect(list.length).toBe(CANONICAL_INGREDIENTS.length);
   });
@@ -24,14 +24,14 @@ describe('Canonical Ingredient Taxonomy & Seed Catalog API', () => {
 
     const req = new Request('http://localhost/api/ingredients');
     const res = await app.fetch(req);
-    const list: IngredientDto[] = await res.json();
+    const list = ingredientListSchema.parse(await res.json());
     expect(list.length).toBe(CANONICAL_INGREDIENTS.length);
   });
 
   it('populates parent_group_id relations correctly for smart substitutions', async () => {
     const req = new Request('http://localhost/api/ingredients');
     const res = await app.fetch(req);
-    const list: IngredientDto[] = await res.json();
+    const list = ingredientListSchema.parse(await res.json());
 
     const oatMilk = list.find((i) => i.id === 'ing_oat_milk');
     expect(oatMilk).toBeDefined();
@@ -50,7 +50,7 @@ describe('Canonical Ingredient Taxonomy & Seed Catalog API', () => {
     const req = new Request('http://localhost/api/ingredients?q=Hafermilch');
     const res = await app.fetch(req);
     expect(res.status).toBe(200);
-    const list: IngredientDto[] = await res.json();
+    const list = ingredientListSchema.parse(await res.json());
 
     expect(list.some((i) => i.id === 'ing_oat_milk')).toBe(true);
   });
@@ -58,26 +58,26 @@ describe('Canonical Ingredient Taxonomy & Seed Catalog API', () => {
   it('matches ingredients against alias dictionaries (e.g. Süßrahmbutter -> Butter, Panko -> Breadcrumbs)', async () => {
     const reqButter = new Request('http://localhost/api/ingredients?q=S%C3%BC%C3%9Frahmbutter');
     const resButter = await app.fetch(reqButter);
-    const listButter: IngredientDto[] = await resButter.json();
+    const listButter = ingredientListSchema.parse(await resButter.json());
     expect(listButter.some((i) => i.id === 'ing_butter')).toBe(true);
 
     const reqPanko = new Request('http://localhost/api/ingredients?q=panko');
     const resPanko = await app.fetch(reqPanko);
-    const listPanko: IngredientDto[] = await resPanko.json();
+    const listPanko = ingredientListSchema.parse(await resPanko.json());
     expect(listPanko.some((i) => i.id === 'ing_breadcrumbs')).toBe(true);
   });
 
   it('matches query strings with minor typos using fuzzy matching algorithm (e.g. "buttr" -> Butter, "milkh" -> Milk)', async () => {
     const reqFuzzy = new Request('http://localhost/api/ingredients?q=buttr');
     const resFuzzy = await app.fetch(reqFuzzy);
-    const listFuzzy: IngredientDto[] = await resFuzzy.json();
+    const listFuzzy = ingredientListSchema.parse(await resFuzzy.json());
     expect(listFuzzy.some((i) => i.id === 'ing_butter')).toBe(true);
   });
 
   it('returns empty array when query does not match any primary name or alias', async () => {
     const req = new Request('http://localhost/api/ingredients?q=nonexistent_xyz_ingredient');
     const res = await app.fetch(req);
-    const list: IngredientDto[] = await res.json();
+    const list = ingredientListSchema.parse(await res.json());
     expect(list).toEqual([]);
   });
 });

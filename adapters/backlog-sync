@@ -1,0 +1,6 @@
+#!/bin/sh
+# Emits open GitHub issues as backlog JSON lines (one object per line).
+set -eu
+
+gh issue list --state open --limit 500 --json number,title,labels \
+  --jq '.[] | {id: (.number | tostring), title: .title, status: "open", tags: [.labels[].name]} | tojson'

@@ -1,0 +1,8 @@
+#!/bin/sh
+# Closes the GitHub issue whose number is $1.
+set -eu
+
+id=${1:-}
+[ -n "$id" ] || { echo "id required" >&2; exit 1; }
+
+gh issue close "$id"

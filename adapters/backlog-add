@@ -1,0 +1,10 @@
+#!/bin/sh
+# Creates a GitHub issue from a JSON payload on stdin; prints the new issue number.
+set -eu
+
+payload=$(cat)
+title=$(printf '%s' "$payload" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>{process.stdout.write(JSON.parse(s).title||'')})")
+[ -n "$title" ] || { echo "title required" >&2; exit 1; }
+
+url=$(gh issue create --title "$title" --body "")
+echo "${url##*/}"

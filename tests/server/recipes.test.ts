@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { app, initDb } from '../../src/server/index.ts';
-import type { RecipeDto, CreateRecipeRequest, UpdateRecipeRequest } from '../../src/shared/types.ts';
+import { recipeDtoSchema, recipeListSchema, type CreateRecipeRequest, type UpdateRecipeRequest } from '../../src/shared/schemas.ts';
 
 describe('Recipe CRUD & Auto-Dietary Inferencing API', () => {
   beforeAll(async () => {
@@ -53,7 +53,7 @@ describe('Recipe CRUD & Auto-Dietary Inferencing API', () => {
 
     const res = await app.fetch(req);
     expect(res.status).toBe(201);
-    const data: RecipeDto = await res.json();
+    const data = recipeDtoSchema.parse(await res.json());
 
     expect(data.id).toBeDefined();
     expect(data.title).toBe('Pancake Special');
@@ -69,7 +69,7 @@ describe('Recipe CRUD & Auto-Dietary Inferencing API', () => {
     const req = new Request('http://localhost/api/recipes');
     const res = await app.fetch(req);
     expect(res.status).toBe(200);
-    const list: RecipeDto[] = await res.json();
+    const list = recipeListSchema.parse(await res.json());
 
     expect(list.length).toBeGreaterThanOrEqual(1);
     const found = list.find((r) => r.id === createdRecipeId);
@@ -81,7 +81,7 @@ describe('Recipe CRUD & Auto-Dietary Inferencing API', () => {
     const req = new Request(`http://localhost/api/recipes/${createdRecipeId}`);
     const res = await app.fetch(req);
     expect(res.status).toBe(200);
-    const data: RecipeDto = await res.json();
+    const data = recipeDtoSchema.parse(await res.json());
 
     expect(data.id).toBe(createdRecipeId);
     expect(data.steps[0].ingredients[0].ingredient?.primaryNameEn).toBe('All-Purpose Flour');
@@ -132,7 +132,7 @@ describe('Recipe CRUD & Auto-Dietary Inferencing API', () => {
 
     const res = await app.fetch(req);
     expect(res.status).toBe(200);
-    const data: RecipeDto = await res.json();
+    const data = recipeDtoSchema.parse(await res.json());
 
     expect(data.title).toBe('Pancake Deluxe');
     expect(data.overrideTrait).toBe('VEGETARIAN');

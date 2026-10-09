@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 import { calculateRecipeDietaryTrait } from '../../src/domain/dietary.ts';
-import type { DietaryTrait } from '../../src/shared/types.ts';
+import type { DietaryTrait } from '../../src/shared/schemas.ts';
 
 describe('calculateRecipeDietaryTrait', () => {
   it('returns VEGAN if no ingredients exist', () => {

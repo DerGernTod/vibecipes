@@ -3,9 +3,10 @@ import { serve } from '@hono/node-server';
 import { db } from './db/index.ts';
 import { ingredients } from './db/schema.ts';
 import { count } from 'drizzle-orm';
-import type { HealthCheckResponse, IngredientDto } from '../shared/types.ts';
+import { dietaryTraitSchema, type HealthCheckResponse, type IngredientDto } from '../shared/schemas.ts';
 import { authRoutes } from './auth.ts';
 import { recipeRoutes } from './recipes.ts';
+import { importReportRoutes } from './importReports.ts';
 import { seedIngredients } from './db/seed.ts';
 import { seedDemoRecipes } from './db/seedRecipes.ts';
 
@@ -14,6 +15,7 @@ export const app = new Hono();
 const routes = app
   .route('/api/auth', authRoutes)
   .route('/api/recipes', recipeRoutes)
+  .route('/api/import-reports', importReportRoutes)
   .get('/api/health', async (c) => {
     const [{ value }] = await db.select({ value: count() }).from(ingredients);
     const res: HealthCheckResponse = {
@@ -34,7 +36,7 @@ const routes = app
       primaryNameDe: item.primaryNameDe,
       aliases: JSON.parse(item.aliasesJson),
       densityGPerMl: item.densityGPerMl,
-      defaultTrait: item.defaultTrait as any,
+      defaultTrait: dietaryTraitSchema.parse(item.defaultTrait),
       parentGroupId: item.parentGroupId ?? null,
       imageUrl: item.imageUrl ?? null,
     }));
@@ -101,7 +103,7 @@ export type AppType = typeof routes;
 // Auto seed SQLite table on startup
 export async function initDb() {
   try {
-    const client = (db as any).$client;
+    const client = db.$client;
     try {
       await client.execute(`PRAGMA journal_mode = WAL;`);
       await client.execute(`PRAGMA busy_timeout = 5000;`);

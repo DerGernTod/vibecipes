@@ -1,15 +1,20 @@
 import React, { useEffect, useState } from 'react';
-import type {
-  RecipeDto,
-  IngredientDto,
-  DietaryTrait,
-  CreateRecipeRequest,
-  CreateRecipeStepInput,
-  CreateRecipeStepIngredientInput,
-} from '../shared/types.ts';
+import {
+  recipeDtoSchema,
+  ingredientListSchema,
+  type IngredientDto,
+  type DietaryTrait,
+  type CreateRecipeRequest,
+  type CreateRecipeStepInput,
+  type CreateRecipeStepIngredientInput,
+  type ImportedRecipe,
+} from '../shared/schemas.ts';
+import { readErrorMessage, readJson } from './http.ts';
 import { calculateRecipeDietaryTrait } from '../domain/dietary.ts';
 import { useLanguage } from './LanguageContext.tsx';
-import { UrlImportModal } from './UrlImportModal.tsx';
+import { UrlImportModal, type ImportOrigin } from './UrlImportModal.tsx';
+import { ImportReportForm } from './ImportReportForm.tsx';
+import { Button, Field, Input, Panel } from './ui/index.ts';
 
 interface RecipeEditorProps {
   recipeId?: string | null;
@@ -32,17 +37,20 @@ export function RecipeEditor({ recipeId, onSaveSuccess, onCancel }: RecipeEditor
   const [saving, setSaving] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [showImportModal, setShowImportModal] = useState(false);
+  // The last import, kept with the extracted recipe as the server returned it (edits do not change it).
+  const [importOrigin, setImportOrigin] = useState<(ImportOrigin & { attempt: number; recipe: ImportedRecipe }) | null>(null);
 
-  const handleImport = (data: any) => {
+  const handleImport = (data: ImportedRecipe, origin: ImportOrigin) => {
+    setImportOrigin((prev) => ({ ...origin, attempt: (prev?.attempt ?? 0) + 1, recipe: data }));
     setTitle(data.title);
     if (data.description) setDescription(data.description);
     if (data.servings) setServings(data.servings);
-    
+
     if (data.ingredients && data.ingredients.length > 0) {
       setSteps([{
         instruction: '',
         timerSec: null,
-        ingredients: data.ingredients.map((ing: any) => ({
+        ingredients: data.ingredients.map((ing) => ({
           canonicalIngredientId: ing.canonicalIngredientId,
           amount: ing.amount,
           unit: ing.unit,
@@ -58,7 +66,7 @@ export function RecipeEditor({ recipeId, onSaveSuccess, onCancel }: RecipeEditor
       try {
         const res = await fetch('/api/ingredients');
         if (res.ok) {
-          const data: IngredientDto[] = await res.json();
+          const data = await readJson(res, ingredientListSchema);
           setCatalog(data);
         }
       } catch (err) {
@@ -76,7 +84,7 @@ export function RecipeEditor({ recipeId, onSaveSuccess, onCancel }: RecipeEditor
       try {
         const res = await fetch(`/api/recipes/${recipeId}`);
         if (res.ok) {
-          const data: RecipeDto = await res.json();
+          const data = await readJson(res, recipeDtoSchema);
           setTitle(data.title);
           setDescription(data.description || '');
           setServings(data.servings);
@@ -120,7 +128,7 @@ export function RecipeEditor({ recipeId, onSaveSuccess, onCancel }: RecipeEditor
     const calculated = calculateRecipeDietaryTrait(allIngredients);
     const effective = calculateRecipeDietaryTrait(
       allIngredients,
-      overrideTrait ? (overrideTrait as DietaryTrait) : null
+      overrideTrait || null
     );
     return { calculated, effective };
   };
@@ -178,11 +186,11 @@ export function RecipeEditor({ recipeId, onSaveSuccess, onCancel }: RecipeEditor
     );
   };
 
-  const handleIngredientChange = (
+  const handleIngredientChange = <K extends keyof CreateRecipeStepIngredientInput>(
     stepIdx: number,
     ingIdx: number,
-    field: keyof CreateRecipeStepIngredientInput,
-    value: any
+    field: K,
+    value: CreateRecipeStepIngredientInput[K]
   ) => {
     setSteps((prev) =>
       prev.map((s, sIdx) => {
@@ -212,7 +220,7 @@ export function RecipeEditor({ recipeId, onSaveSuccess, onCancel }: RecipeEditor
       title: title.trim(),
       description: description.trim() || undefined,
       servings: Number(servings) || 4,
-      overrideTrait: overrideTrait ? (overrideTrait as DietaryTrait) : null,
+      overrideTrait: overrideTrait || null,
       steps: steps.map((s) => ({
         instruction: s.instruction.trim(),
         timerSec: s.timerSec,
@@ -236,11 +244,10 @@ export function RecipeEditor({ recipeId, onSaveSuccess, onCancel }: RecipeEditor
       });
 
       if (res.ok) {
-        const data: RecipeDto = await res.json();
+        const data = await readJson(res, recipeDtoSchema);
         onSaveSuccess(data.id);
       } else {
-        const errJson = await res.json().catch(() => ({}));
-        setError(errJson.error || t('Failed to save recipe', 'Rezept konnte nicht gespeichert werden'));
+        setError(await readErrorMessage(res, t('Failed to save recipe', 'Rezept konnte nicht gespeichert werden')));
       }
     } catch (err) {
       setError(String(err));
@@ -257,84 +264,93 @@ export function RecipeEditor({ recipeId, onSaveSuccess, onCancel }: RecipeEditor
   if (liveEffective === 'OMNIVORE') traitBadgeClass = 'trait-omnivore';
 
   return (
-    <div className="card">
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
-        <h2 style={{ margin: 0 }}>{recipeId ? t('Edit Recipe', 'Rezept bearbeiten') : t('Create New Recipe', 'Neues Rezept erstellen')}</h2>
+    <>
+      <div className="editor-header">
+        <h2>{recipeId ? t('Edit Recipe', 'Rezept bearbeiten') : t('Create New Recipe', 'Neues Rezept erstellen')}</h2>
         {!recipeId && (
-          <button type="button" className="btn-secondary" onClick={() => setShowImportModal(true)}>
+          <Button size="sm" onClick={() => setShowImportModal(true)}>
             🔗 {t('Import from URL', 'Von URL importieren')}
-          </button>
+          </Button>
         )}
       </div>
+      {!recipeId && importOrigin && (
+        <div className="import-check">
+          <p className="import-check__hint">
+            {`${t('Imported from', 'Importiert von')} ${importOrigin.url}. ${t('Check the fields below against the page. If the extraction is wrong, report it here.', 'Prüfe die Felder unten mit der Seite. Ist die Extraktion falsch, melde sie hier.')}`}
+          </p>
+          <ImportReportForm
+            key={importOrigin.attempt}
+            report={{ url: importOrigin.url, httpStatus: importOrigin.httpStatus, importResult: importOrigin.recipe }}
+          />
+        </div>
+      )}
 
-      <UrlImportModal 
-        isOpen={showImportModal} 
-        onClose={() => setShowImportModal(false)} 
-        onImport={handleImport} 
+      <UrlImportModal
+        isOpen={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        onImport={handleImport}
       />
 
-      {error && <div style={{ color: '#ef4444', marginBottom: '1rem' }}>{error}</div>}
+      {error && <div className="alert alert--error">{error}</div>}
 
-      <form onSubmit={handleSave}>
-        <div className="form-group">
-          <label>{t('Recipe Title *', 'Rezepttitel *')}</label>
-          <input
+      <form className="editor-form" onSubmit={handleSave}>
+        <Field label={t('Recipe Title *', 'Rezepttitel *')} htmlFor="ed-title">
+          <Input
+            id="ed-title"
             type="text"
-            className="form-control"
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder={t('e.g. Fluffy Vegan Pancakes', 'z.B. Vegane Pfannkuchen')}
             required
           />
-        </div>
+        </Field>
 
-        <div className="form-group">
-          <label>{t('Description / Summary', 'Beschreibung / Zusammenfassung')}</label>
+        <Field label={t('Description / Summary', 'Beschreibung / Zusammenfassung')} htmlFor="ed-description">
           <textarea
-            className="form-control"
+            id="ed-description"
+            className="input"
             rows={3}
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             placeholder={t('Brief notes about this recipe...', 'Kurze Beschreibung des Rezepts...')}
           />
-        </div>
+        </Field>
 
-        <div className="form-row">
-          <div className="form-group">
-            <label>{t('Base Servings', 'Basisportionen')}</label>
-            <input
+        <div className="field-row">
+          <Field label={t('Base Servings', 'Basisportionen')} htmlFor="ed-servings">
+            <Input
+              id="ed-servings"
               type="number"
               min={1}
-              className="form-control"
               value={servings}
               onChange={(e) => setServings(parseInt(e.target.value, 10) || 1)}
             />
-          </div>
+          </Field>
 
-          <div className="form-group">
-            <label>{t('Dietary Trait Override', 'Ernährungseigenschaft überschreiben')}</label>
+          <Field label={t('Dietary Trait Override', 'Ernährungseigenschaft überschreiben')} htmlFor="ed-override">
             <select
-              className="form-control"
+              id="ed-override"
+              className="input"
               value={overrideTrait}
-              onChange={(e) => setOverrideTrait(e.target.value as any)}
+              onChange={(e) => setOverrideTrait(e.target.value as DietaryTrait | '')}
             >
               <option value="">{t('Automatic (Inferred)', 'Automatisch (Berechnet)')}</option>
               <option value="VEGAN">VEGAN</option>
               <option value="VEGETARIAN">VEGETARIAN</option>
               <option value="OMNIVORE">OMNIVORE</option>
             </select>
-          </div>
+          </Field>
         </div>
 
         {/* Live Dietary Trait Preview Banner */}
-        <div className="selected-ingredient-banner" style={{ marginBottom: '1.5rem' }}>
+        <div className="live-trait">
           <div>
             <strong>{t('Live Dietary Trait:', 'Live Ernährungs-Status:')}</strong>{' '}
-            <span className={`trait-badge ${traitBadgeClass}`} style={{ marginLeft: '0.5rem' }}>
+            <span className={`trait-badge ${traitBadgeClass}`}>
               {liveEffective} {overrideTrait ? '⚡' : ''}
             </span>
           </div>
-          <span style={{ fontSize: '0.85rem', color: 'var(--muted)' }}>
+          <span className="live-trait__note">
             {overrideTrait
               ? t(`Inferred trait is ${liveCalculated} (Overridden to ${overrideTrait})`, `Berechnet: ${liveCalculated} (Überschrieben auf ${overrideTrait})`)
               : t(`Inferred automatically from ingredient traits`, `Automatisch aus Zutaten-Eigenschaften berechnet`)}
@@ -342,89 +358,71 @@ export function RecipeEditor({ recipeId, onSaveSuccess, onCancel }: RecipeEditor
         </div>
 
         {/* Step Manager */}
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+        <div className="editor-header">
           <h3>📋 {t('Step-by-Step Instructions', 'Schritt-für-Schritt Anleitung')}</h3>
-          <button type="button" className="btn-secondary" onClick={handleAddStep}>
+          <Button size="sm" onClick={handleAddStep}>
             + {t('Add Step', 'Schritt hinzufügen')}
-          </button>
+          </Button>
         </div>
 
         {steps.map((step, sIdx) => (
-          <div key={sIdx} className="step-item">
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-              <strong style={{ color: 'var(--primary)' }}>
+          <Panel key={sIdx} tone="raised" padding="md" className="editor-step">
+            <div className="editor-header">
+              <strong className="editor-step__number">
                 {t('Step', 'Schritt')} {sIdx + 1}
               </strong>
               {steps.length > 1 && (
-                <button
-                  type="button"
-                  className="btn-danger"
-                  onClick={() => handleRemoveStep(sIdx)}
-                  style={{ padding: '0.2rem 0.5rem', fontSize: '0.78rem' }}
-                >
+                <Button variant="danger" size="sm" onClick={() => handleRemoveStep(sIdx)}>
                   ✕ {t('Remove Step', 'Schritt entfernen')}
-                </button>
+                </Button>
               )}
             </div>
 
-            <div className="form-group">
-              <label>{t('Instruction', 'Anweisung')}</label>
+            <Field label={t('Instruction', 'Anweisung')} htmlFor={`ed-step-${sIdx}-instruction`}>
               <textarea
-                className="form-control"
+                id={`ed-step-${sIdx}-instruction`}
+                className="input"
                 rows={2}
                 value={step.instruction}
                 onChange={(e) => handleStepInstructionChange(sIdx, e.target.value)}
                 placeholder={t('e.g. Sift flour and whisk in oat milk until smooth...', 'z.B. Mehl sieben und Hafermilch einrühren...')}
               />
-            </div>
+            </Field>
 
-            <div className="form-row">
-              <div className="form-group" style={{ maxWidth: '200px' }}>
-                <label>{t('Timer (Seconds)', 'Timer (Sekunden)')}</label>
-                <input
+            <div className="field-row">
+              <Field label={t('Timer (Seconds)', 'Timer (Sekunden)')} htmlFor={`ed-step-${sIdx}-timer`}>
+                <Input
+                  id={`ed-step-${sIdx}-timer`}
                   type="number"
-                  className="form-control"
+                  className="editor-step__timer"
                   placeholder="e.g. 180"
                   value={step.timerSec ?? ''}
                   onChange={(e) => handleStepTimerChange(sIdx, e.target.value)}
                 />
-              </div>
+              </Field>
             </div>
 
             {/* Step Ingredients */}
-            <div style={{ marginTop: '1rem', background: '#1e293b', padding: '0.75rem', borderRadius: '6px' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.5rem' }}>
-                <span style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--muted)' }}>
+            <Panel tone="inset" padding="sm" className="editor-step__ingredients">
+              <div className="editor-header">
+                <span className="editor-step__ingredients-title">
                   🥗 {t('Ingredients for this step', 'Zutaten für diesen Schritt')}
                 </span>
-                <button
-                  type="button"
-                  className="btn-secondary-sm"
-                  onClick={() => handleAddIngredient(sIdx)}
-                >
+                <Button size="sm" onClick={() => handleAddIngredient(sIdx)}>
                   + {t('Add Ingredient', 'Zutat hinzufügen')}
-                </button>
+                </Button>
               </div>
 
               {step.ingredients.length === 0 ? (
-                <p style={{ fontSize: '0.82rem', color: 'var(--muted)', margin: 0 }}>
+                <p className="editor-step__empty">
                   {t('No ingredients added to this step.', 'Keine Zutaten für diesen Schritt.')}
                 </p>
               ) : (
                 step.ingredients.map((ing, iIdx) => (
-                  <div
-                    key={iIdx}
-                    style={{
-                      display: 'flex',
-                      gap: '0.5rem',
-                      alignItems: 'center',
-                      flexWrap: 'wrap',
-                      marginBottom: '0.5rem',
-                    }}
-                  >
+                  <div key={iIdx} className="ingredient-row">
                     <select
-                      className="form-control"
-                      style={{ flex: 2, minWidth: '180px' }}
+                      className="input ingredient-row__ingredient"
+                      aria-label={t('Ingredient', 'Zutat')}
                       value={ing.canonicalIngredientId}
                       onChange={(e) => handleIngredientChange(sIdx, iIdx, 'canonicalIngredientId', e.target.value)}
                     >
@@ -438,15 +436,15 @@ export function RecipeEditor({ recipeId, onSaveSuccess, onCancel }: RecipeEditor
                     <input
                       type="number"
                       step="any"
-                      className="form-control"
-                      style={{ width: '80px' }}
+                      aria-label={t('Amount', 'Menge')}
+                      className="input ingredient-row__amount"
                       value={ing.amount}
                       onChange={(e) => handleIngredientChange(sIdx, iIdx, 'amount', parseFloat(e.target.value) || 0)}
                     />
 
                     <select
-                      className="form-control"
-                      style={{ width: '80px' }}
+                      className="input ingredient-row__unit"
+                      aria-label={t('Unit', 'Einheit')}
                       value={ing.unit}
                       onChange={(e) => handleIngredientChange(sIdx, iIdx, 'unit', e.target.value)}
                     >
@@ -459,37 +457,32 @@ export function RecipeEditor({ recipeId, onSaveSuccess, onCancel }: RecipeEditor
 
                     <input
                       type="text"
-                      className="form-control"
-                      style={{ flex: 1, minWidth: '120px' }}
+                      className="input ingredient-row__note"
+                      aria-label={t('Preparation note', 'Zubereitungshinweis')}
                       placeholder={t('Note (e.g. melted)', 'Hinweis (z.B. geschmolzen)')}
                       value={ing.preparationNote || ''}
                       onChange={(e) => handleIngredientChange(sIdx, iIdx, 'preparationNote', e.target.value)}
                     />
 
-                    <button
-                      type="button"
-                      className="btn-danger"
-                      onClick={() => handleRemoveIngredient(sIdx, iIdx)}
-                      style={{ padding: '0.35rem 0.5rem', fontSize: '0.75rem' }}
-                    >
+                    <Button variant="danger" size="sm" aria-label={t('Remove ingredient', 'Zutat entfernen')} onClick={() => handleRemoveIngredient(sIdx, iIdx)}>
                       ✕
-                    </button>
+                    </Button>
                   </div>
                 ))
               )}
-            </div>
-          </div>
+            </Panel>
+          </Panel>
         ))}
 
-        <div style={{ display: 'flex', gap: '1rem', marginTop: '1.5rem' }}>
-          <button type="submit" className="btn-primary" disabled={saving}>
+        <div className="editor-actions">
+          <Button type="submit" variant="primary" disabled={saving}>
             {saving ? t('Saving...', 'Speichere...') : t('Save Recipe', 'Rezept speichern')}
-          </button>
-          <button type="button" className="btn-secondary" onClick={onCancel} disabled={saving}>
+          </Button>
+          <Button onClick={onCancel} disabled={saving}>
             {t('Cancel', 'Abbrechen')}
-          </button>
+          </Button>
         </div>
       </form>
-    </div>
+    </>
   );
 }

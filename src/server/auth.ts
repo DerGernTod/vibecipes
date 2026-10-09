@@ -14,7 +14,14 @@ import {
 import { isoBase64URL, isoUint8Array } from '@simplewebauthn/server/helpers';
 import { db } from './db/index.ts';
 import { users, authenticators, sessions } from './db/schema.ts';
-import type { UserDto, AuthStatusResponse, VerifyAuthResponse } from '../shared/types.ts';
+import type { UserDto, AuthStatusResponse, VerifyAuthResponse } from '../shared/schemas.ts';
+import {
+  registerOptionsRequestSchema,
+  loginOptionsRequestSchema,
+  registrationResponseSchema,
+  authenticationResponseSchema,
+} from '../shared/schemas.ts';
+import { parseJsonBody } from './parseBody.ts';
 
 
 const COOKIE_SECRET = process.env.COOKIE_SECRET || 'vibecipes-dev-secret-key-32-chars-minimum!';
@@ -107,14 +114,9 @@ export const authRoutes = new Hono()
   })
 
   .post('/register/options', async (c) => {
-    const body = ((await c.req.json<{ username?: string; displayName?: string }>().catch(() => ({}))) || {}) as {
-      username?: string;
-      displayName?: string;
-    };
-    const username = body.username?.trim();
-    if (!username) {
-      return c.json({ error: 'Username is required' }, 400);
-    }
+    const parsedOptions = await parseJsonBody(c, registerOptionsRequestSchema);
+    if (!parsedOptions.ok) return c.json({ error: parsedOptions.error }, 400);
+    const { username, displayName } = parsedOptions.data;
 
     let user = await db.query.users.findFirst({
       where: eq(users.username, username),
@@ -135,7 +137,7 @@ export const authRoutes = new Hono()
       rpID: RP_ID,
       userID: isoUint8Array.fromUTF8String(userId),
       userName: username,
-      userDisplayName: body.displayName?.trim() || username,
+      userDisplayName: displayName?.trim() || username,
       attestationType: 'none',
       excludeCredentials,
       authenticatorSelection: {
@@ -148,7 +150,7 @@ export const authRoutes = new Hono()
       challenge: options.challenge,
       userId,
       username,
-      displayName: body.displayName?.trim() || username,
+      displayName: displayName?.trim() || username,
     });
 
 
@@ -165,7 +167,9 @@ export const authRoutes = new Hono()
   })
 
   .post('/register/verify', async (c) => {
-    const body = await c.req.json<RegistrationResponseJSON>();
+    const parsedReg = await parseJsonBody(c, registrationResponseSchema);
+    if (!parsedReg.ok) return c.json({ error: parsedReg.error }, 400);
+    const body = parsedReg.data;
     const challengeCookie = await getSignedCookie(c, COOKIE_SECRET, 'passkey_challenge');
 
     if (!challengeCookie) {
@@ -190,8 +194,8 @@ export const authRoutes = new Hono()
         expectedOrigin: expectedOrigins,
         expectedRPID: RP_ID,
       });
-    } catch (err: any) {
-      return c.json({ error: err.message || 'Registration verification failed' }, 400);
+    } catch (err: unknown) {
+      return c.json({ error: (err instanceof Error && err.message) || 'Registration verification failed' }, 400);
     }
 
     const { verified, registrationInfo } = verification;
@@ -272,13 +276,14 @@ export const authRoutes = new Hono()
   })
 
   .post('/login/options', async (c) => {
-    const body = ((await c.req.json<{ username?: string }>().catch(() => ({}))) || {}) as { username?: string };
+    const parsedLogin = await parseJsonBody(c, loginOptionsRequestSchema);
+    const username = parsedLogin.ok ? parsedLogin.data?.username : undefined;
     let allowCredentials: { id: string; transports?: AuthenticatorTransportFuture[] }[] | undefined;
 
 
-    if (body.username) {
+    if (username) {
       const user = await db.query.users.findFirst({
-        where: eq(users.username, body.username),
+        where: eq(users.username, username),
       });
 
       if (user) {
@@ -312,7 +317,9 @@ export const authRoutes = new Hono()
   })
 
   .post('/login/verify', async (c) => {
-    const body = await c.req.json<AuthenticationResponseJSON>();
+    const parsedAuth = await parseJsonBody(c, authenticationResponseSchema);
+    if (!parsedAuth.ok) return c.json({ error: parsedAuth.error }, 400);
+    const body = parsedAuth.data;
     const challengeCookie = await getSignedCookie(c, COOKIE_SECRET, 'passkey_challenge');
 
     if (!challengeCookie) {
@@ -359,8 +366,8 @@ export const authRoutes = new Hono()
           transports: authenticator.transports ? JSON.parse(authenticator.transports) : undefined,
         },
       });
-    } catch (err: any) {
-      return c.json({ error: err.message || 'Authentication verification failed' }, 400);
+    } catch (err: unknown) {
+      return c.json({ error: (err instanceof Error && err.message) || 'Authentication verification failed' }, 400);
     }
 
     const { verified, authenticationInfo } = verification;

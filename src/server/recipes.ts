@@ -1,4 +1,4 @@
-import { Hono } from 'hono';
+import { Hono, type Context } from 'hono';
 import { eq, inArray } from 'drizzle-orm';
 import { db } from './db/index.ts';
 import { recipes, recipeSteps, recipeStepIngredients, ingredients, users, sessions } from './db/schema.ts';
@@ -6,20 +6,22 @@ import { getSignedCookie } from 'hono/cookie';
 import { calculateRecipeDietaryTrait } from '../domain/dietary.ts';
 import { extractRecipeJsonLd, normalizeIngredient } from '../domain/import.ts';
 import { fuzzyMatch } from './index.ts';
-import type {
-  RecipeDto,
-  RecipeStepDto,
-  RecipeStepIngredientDto,
-  AggregatedIngredientDto,
-  IngredientDto,
-  CreateRecipeRequest,
-  UpdateRecipeRequest,
-  DietaryTrait,
-} from '../shared/types.ts';
+import {
+  importUrlRequestSchema,
+  createRecipeRequestSchema,
+  updateRecipeRequestSchema,
+  type RecipeDto,
+  type RecipeStepDto,
+  type RecipeStepIngredientDto,
+  type AggregatedIngredientDto,
+  type IngredientDto,
+  type DietaryTrait,
+} from '../shared/schemas.ts';
+import { parseJsonBody } from './parseBody.ts';
 
 const COOKIE_SECRET = process.env.COOKIE_SECRET || 'vibecipes-dev-secret-key-32-chars-minimum!';
 
-async function getOptionalUserId(c: any): Promise<string | null> {
+async function getOptionalUserId(c: Context): Promise<string | null> {
   try {
     const sessionId = await getSignedCookie(c, COOKIE_SECRET, 'vibecipes_session');
     if (!sessionId) return null;
@@ -172,8 +174,9 @@ export async function buildRecipeDto(recipeId: string): Promise<RecipeDto | null
 
 export const recipeRoutes = new Hono()
   .post('/import-url', async (c) => {
-    const { url } = await c.req.json<{ url: string }>();
-    if (!url) return c.json({ error: 'URL is required' }, 400);
+    const parsedUrl = await parseJsonBody(c, importUrlRequestSchema);
+    if (!parsedUrl.ok) return c.json({ error: parsedUrl.error }, 400);
+    const url = parsedUrl.data.url;
 
     try {
       const response = await fetch(url, {
@@ -264,8 +267,9 @@ export const recipeRoutes = new Hono()
         imageUrl,
         ingredients: stepIngredients
       });
-    } catch (err: any) {
-      return c.json({ error: 'Failed to process URL: ' + err.message }, 500);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      return c.json({ error: 'Failed to process URL: ' + message }, 500);
     }
   })
   .get('/', async (c) => {
@@ -290,10 +294,9 @@ export const recipeRoutes = new Hono()
   })
 
   .post('/', async (c) => {
-    const body = await c.req.json<CreateRecipeRequest>();
-    if (!body.title || body.title.trim().length === 0) {
-      return c.json({ error: 'Recipe title is required' }, 400);
-    }
+    const parsedCreate = await parseJsonBody(c, createRecipeRequestSchema);
+    if (!parsedCreate.ok) return c.json({ error: parsedCreate.error }, 400);
+    const body = parsedCreate.data;
 
     const userId = await getOptionalUserId(c);
     const now = new Date().toISOString();
@@ -352,7 +355,9 @@ export const recipeRoutes = new Hono()
       return c.json({ error: 'Recipe not found' }, 404);
     }
 
-    const body = await c.req.json<UpdateRecipeRequest>();
+    const parsedUpdate = await parseJsonBody(c, updateRecipeRequestSchema);
+    if (!parsedUpdate.ok) return c.json({ error: parsedUpdate.error }, 400);
+    const body = parsedUpdate.data;
     const now = new Date().toISOString();
 
     await db

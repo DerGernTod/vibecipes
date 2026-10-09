@@ -1,5 +1,11 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { app, initDb } from '../../src/server/index.ts';
+import {
+  authStatusResponseSchema,
+  authenticationOptionsResponseSchema,
+  errorResponseSchema,
+  registrationOptionsResponseSchema,
+} from '../../src/shared/schemas.ts';
 import { db } from '../../src/server/db/index.ts';
 import { users, sessions, authenticators } from '../../src/server/db/schema.ts';
 import { setSignedCookie } from 'hono/cookie';
@@ -17,7 +23,7 @@ describe('WebAuthn Auth & Session Management API (app.fetch)', () => {
     const res = await app.fetch(req);
 
     expect(res.status).toBe(200);
-    const data = await res.json();
+    const data = authStatusResponseSchema.parse(await res.json());
     expect(data.user).toBeNull();
   });
 
@@ -30,7 +36,7 @@ describe('WebAuthn Auth & Session Management API (app.fetch)', () => {
     const res = await app.fetch(req);
 
     expect(res.status).toBe(400);
-    const data = await res.json();
+    const data = errorResponseSchema.parse(await res.json());
     expect(data.error).toBe('Username is required');
   });
 
@@ -43,7 +49,7 @@ describe('WebAuthn Auth & Session Management API (app.fetch)', () => {
     const res = await app.fetch(req);
 
     expect(res.status).toBe(200);
-    const options = await res.json();
+    const options = registrationOptionsResponseSchema.parse(await res.json());
     expect(options.rp.name).toBe('Vibecipes');
     expect(options.rp.id).toBe('localhost');
     expect(options.user.name).toBe('testchef');
@@ -65,7 +71,7 @@ describe('WebAuthn Auth & Session Management API (app.fetch)', () => {
     const res = await app.fetch(req);
 
     expect(res.status).toBe(200);
-    const options = await res.json();
+    const options = authenticationOptionsResponseSchema.parse(await res.json());
     expect(options.rpId).toBe('localhost');
     expect(typeof options.challenge).toBe('string');
 
@@ -110,11 +116,11 @@ describe('WebAuthn Auth & Session Management API (app.fetch)', () => {
     const res = await app.fetch(req);
 
     expect(res.status).toBe(200);
-    const data = await res.json();
+    const data = authStatusResponseSchema.parse(await res.json());
     expect(data.user).toBeDefined();
-    expect(data.user.id).toBe(userId);
-    expect(data.user.username).toBe(`sessionuser_${userId}`);
-    expect(data.user.displayName).toBe('Session User');
+    expect(data.user?.id).toBe(userId);
+    expect(data.user?.username).toBe(`sessionuser_${userId}`);
+    expect(data.user?.displayName).toBe('Session User');
   });
 
   it('POST /api/auth/logout revokes session and clears cookie', async () => {

@@ -7,6 +7,7 @@ import { RecipeList } from './RecipeList.tsx';
 import { RecipeDetail } from './RecipeDetail.tsx';
 import { RecipeEditor } from './RecipeEditor.tsx';
 import { LanguageProvider, LanguageToggle, useLanguage } from './LanguageContext.tsx';
+import { AppShell, Button, Modal, NavLink } from './ui/index.ts';
 
 type ActiveTab = 'recipes' | 'ingredients';
 type RecipeViewMode = 'list' | 'detail' | 'create' | 'edit';
@@ -14,13 +15,9 @@ type RecipeViewMode = 'list' | 'detail' | 'create' | 'edit';
 function AuthModal({ isOpen, onClose }: { isOpen: boolean, onClose: () => void }) {
   if (!isOpen) return null;
   return (
-    <div style={{ position: 'fixed', inset: 0, zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', background: 'rgba(0,0,0,0.7)', backdropFilter: 'blur(5px)' }}>
-      <div style={{ background: '#0f172a', padding: '2rem', borderRadius: '16px', maxWidth: '500px', width: '90%', position: 'relative', border: '1px solid #334155' }}>
-        <button onClick={onClose} style={{ position: 'absolute', top: '1rem', right: '1rem', background: 'transparent', border: 'none', color: '#fff', fontSize: '1.5rem', cursor: 'pointer' }}>×</button>
-        <h2 style={{ marginTop: 0, marginBottom: '1.5rem' }}>Account & Settings</h2>
-        <AuthBar />
-      </div>
-    </div>
+    <Modal title="Account & Settings" onClose={onClose}>
+      <AuthBar />
+    </Modal>
   );
 }
 
@@ -42,6 +39,7 @@ function AppContent() {
   };
 
   const handleCreateRecipe = () => {
+    setActiveTab('recipes');
     setSelectedRecipeId(null);
     setRecipeViewMode('create');
   };
@@ -52,44 +50,43 @@ function AppContent() {
   };
 
   return (
-    <div style={{ minHeight: '100vh', background: '#020617', color: '#f8fafc', overflowX: 'hidden' }}>
-      <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />
-      
-      <nav style={{ boxSizing: 'border-box', position: 'fixed', top: 0, width: '100%', display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '1.5rem 4rem', zIndex: 100, background: 'linear-gradient(to bottom, rgba(0,0,0,0.9), transparent)' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '3rem' }}>
-          <h1 style={{ margin: 0, color: '#e50914', fontSize: '1.8rem', letterSpacing: '-1px', textShadow: '0 2px 4px rgba(0,0,0,0.8)' }}>VIBECIPES</h1>
-          <div style={{ display: 'flex', gap: '1.5rem', fontWeight: 500, fontSize: '0.9rem' }}>
-            <span style={{ cursor: 'pointer', transition: '0.2s', color: activeTab === 'recipes' ? '#fff' : '#94a3b8' }} onClick={() => { setActiveTab('recipes'); setRecipeViewMode('list'); }}>{t('Home', 'Startseite')}</span>
-            <span style={{ cursor: 'pointer', transition: '0.2s', color: activeTab === 'ingredients' ? '#fff' : '#94a3b8' }} onClick={() => setActiveTab('ingredients')}>{t('Taxonomy', 'Taxonomie')}</span>
-          </div>
-        </div>
-
-        <div style={{ display: 'flex', alignItems: 'center', gap: '1.5rem' }}>
-          <button style={{ background: 'transparent', border: 'none', color: '#fff', cursor: 'pointer', fontWeight: 600 }} onClick={handleCreateRecipe}>+ {t('New', 'Neu')}</button>
+    <AppShell
+      brand={<h1 className="app-brand">VIBECIPES</h1>}
+      nav={
+        <>
+          <NavLink current={activeTab === 'recipes'} onClick={() => { setActiveTab('recipes'); setRecipeViewMode('list'); }}>{t('Home', 'Startseite')}</NavLink>
+          <NavLink current={activeTab === 'ingredients'} onClick={() => setActiveTab('ingredients')}>{t('Taxonomy', 'Taxonomie')}</NavLink>
+        </>
+      }
+      actions={
+        <>
+          <Button variant="ghost" onClick={handleCreateRecipe}>+ {t('New', 'Neu')}</Button>
           <LanguageToggle />
-          <div 
+          <button
+            type="button"
+            className="app-avatar"
             onClick={() => setIsAuthOpen(true)}
-            style={{ width: '35px', height: '35px', borderRadius: '4px', background: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', fontWeight: 'bold' }}
             title={t('Profile & Settings', 'Profil & Einstellungen')}
           >
             ME
-          </div>
-        </div>
-      </nav>
+          </button>
+        </>
+      }
+    >
+      <AuthModal isOpen={isAuthOpen} onClose={() => setIsAuthOpen(false)} />
 
       {activeTab === 'ingredients' ? (
-         <div style={{ maxWidth: '900px', margin: '8rem auto', padding: '2rem' }}>
-           <IngredientSearch />
-         </div>
+         <IngredientSearch />
+      ) : recipeViewMode === 'detail' && selectedRecipeId ? (
+         <RecipeDetail recipeId={selectedRecipeId} onBack={() => setRecipeViewMode('list')} onEdit={(id) => handleEditRecipe(id)} />
       ) : recipeViewMode !== 'list' ? (
-         <div style={{ maxWidth: '900px', margin: '8rem auto', background: '#0f172a', padding: '2rem', borderRadius: '12px', border: '1px solid #1e293b' }}>
-           {recipeViewMode === 'detail' && selectedRecipeId && <RecipeDetail recipeId={selectedRecipeId} onBack={() => setRecipeViewMode('list')} onEdit={(id) => handleEditRecipe(id)} />}
+         <div className="editor-page">
            {(recipeViewMode === 'create' || recipeViewMode === 'edit') && <RecipeEditor recipeId={selectedRecipeId} onSaveSuccess={handleSaveSuccess} onCancel={() => setRecipeViewMode('list')} />}
          </div>
       ) : (
          <RecipeList onSelectRecipe={handleSelectRecipe} onEditRecipe={handleEditRecipe} onCreateRecipe={handleCreateRecipe} />
       )}
-    </div>
+    </AppShell>
   );
 }
 

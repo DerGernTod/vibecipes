@@ -1,6 +1,7 @@
 import { eq, sql } from 'drizzle-orm';
 import { ingredients } from './schema.ts';
-import type { DietaryTrait } from '../../shared/types.ts';
+import type { DietaryTrait } from '../../shared/schemas.ts';
+import type { db as AppDb } from './index.ts';
 
 export interface RawCanonicalIngredient {
   id: string;
@@ -675,7 +676,7 @@ export const CANONICAL_INGREDIENTS: RawCanonicalIngredient[] = [
   },
 ];
 
-export async function seedIngredients(dbInstance: any) {
+export async function seedIngredients(dbInstance: typeof AppDb) {
   const pass1Values = CANONICAL_INGREDIENTS.map((item) => ({
     id: item.id,
     primaryNameEn: item.primaryNameEn,

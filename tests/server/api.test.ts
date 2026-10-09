@@ -1,5 +1,6 @@
 import { describe, it, expect, beforeAll } from 'vitest';
 import { app, initDb } from '../../src/server/index.ts';
+import { healthCheckResponseSchema, ingredientListSchema } from '../../src/shared/schemas.ts';
 
 describe('Server API Seam (app.fetch)', () => {
   beforeAll(async () => {
@@ -11,7 +12,7 @@ describe('Server API Seam (app.fetch)', () => {
     const res = await app.fetch(req);
 
     expect(res.status).toBe(200);
-    const data = await res.json();
+    const data = healthCheckResponseSchema.parse(await res.json());
     expect(data.status).toBe('ok');
     expect(data.database).toBe('connected');
     expect(typeof data.ingredientCount).toBe('number');
@@ -24,14 +25,14 @@ describe('Server API Seam (app.fetch)', () => {
     const res = await app.fetch(req);
 
     expect(res.status).toBe(200);
-    const ingredients = await res.json();
+    const ingredients = ingredientListSchema.parse(await res.json());
     expect(Array.isArray(ingredients)).toBe(true);
     expect(ingredients.length).toBeGreaterThanOrEqual(2);
 
-    const oatMilk = ingredients.find((i: any) => i.id === 'ing_oat_milk');
+    const oatMilk = ingredients.find((i) => i.id === 'ing_oat_milk');
     expect(oatMilk).toBeDefined();
-    expect(oatMilk.primaryNameEn).toBe('Oat Milk');
-    expect(oatMilk.defaultTrait).toBe('VEGAN');
-    expect(Array.isArray(oatMilk.aliases)).toBe(true);
+    expect(oatMilk?.primaryNameEn).toBe('Oat Milk');
+    expect(oatMilk?.defaultTrait).toBe('VEGAN');
+    expect(Array.isArray(oatMilk?.aliases)).toBe(true);
   });
 });
